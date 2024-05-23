@@ -1,18 +1,17 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'CogniSim GH Action'
+description: 'Run a Cognisim test given an api key and a test id.'
+author: 'CogniSim'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  test-id:
+    description: 'The test id to run.'
     required: true
-    default: '1000'
 
 # Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
+  success:
+    description: 'Whether or not the test fails.'
 
 runs:
   using: node20
