@@ -176,30 +176,33 @@ steps:
 For example workflow runs, check out the
 [Actions tab](https://github.com/actions/javascript-action/actions)! :rocket:
 
-## Usage
+# CogniSim Github Action
 
-After testing, you can create version tag(s) that developers can use to
-reference different stable versions of your action. For more information, see
-[Versioning](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-in the GitHub Actions toolkit.
 
-To include the action in a workflow in another repository, you can use the
-`uses` syntax with the `@` symbol to reference a specific branch, tag, or commit
-hash.
+Setup Github Action to run CogniSim on your repository.
 
+
+SETUP
+
+Go to 
+For a comprehensive guide on setting up and using CogniSim for more in-depth testing beyond basic assertions, please visit the CogniSim documentation:
+[https://docs.cognisim.io/introduction](https://docs.cognisim.io/introduction)
+
+
+Create CogniSim API key on settings Page
+
+
+Add the following code to your workflow file
 ```yaml
-steps:
-  - name: Checkout
-    id: checkout
-    uses: actions/checkout@v4
+- uses: actions/checkout@v3
+  with:
+    fetch-depth: 0
 
-  - name: Run my Action
-    id: run-action
-    uses: actions/javascript-action@v1 # Commit with the `v1` tag
-    with:
-      milliseconds: 1000
+- name: Run tests using CogniSim
+  uses: CogniSim/cognisim-gh-action@v1
+  env:
+    COGNISIM_API_KEY: ${{ secrets.COGNISIM_API_KEY }}
+  with:
+    test-id: <test-id>
 
-  - name: Print Output
-    id: output
-    run: echo "${{ steps.run-action.outputs.time }}"
 ```
