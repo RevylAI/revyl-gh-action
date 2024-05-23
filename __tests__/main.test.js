@@ -1,96 +1,61 @@
-/**
- * Unit tests for the action's main functionality, src/main.js
- */
 const core = require('@actions/core')
+const httpm = require('@actions/http-client')
 const main = require('../src/main')
 
-// Mock the GitHub Actions core library
-const debugMock = jest.spyOn(core, 'debug').mockImplementation()
-const getInputMock = jest.spyOn(core, 'getInput').mockImplementation()
-const setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation()
-const setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation()
+jest.mock('@actions/core')
+jest.mock('@actions/http-client')
 
-// Mock the action's main function
-const runMock = jest.spyOn(main, 'run')
+describe('run function', () => {
+  let mockHttpClient
 
-// Other utilities
-const timeRegex = /^\d{2}:\d{2}:\d{2}/
-
-describe('action', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+
+    mockHttpClient = {
+      postJson: jest.fn()
+    }
+    httpm.HttpClient.mockReturnValue(mockHttpClient)
   })
 
-  it('sets the time output', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          return '500'
-        default:
-          return ''
+  it('should throw an error if COGNISIM_API_TOKEN is not set', async () => {
+    await main.run()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
+    )
+  })
+
+  it('should call setFailed if the API request fails', async () => {
+    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    core.getInput.mockReturnValue('test-id')
+    mockHttpClient.postJson.mockResolvedValue({
+      message: {
+        statusCode: 400,
+        result: 'FAiled'
       }
     })
 
     await main.run()
-    expect(runMock).toHaveReturned()
 
-    // Verify that all of the core library functions were called correctly
-    expect(debugMock).toHaveBeenNthCalledWith(1, 'Waiting 500 milliseconds ...')
-    expect(debugMock).toHaveBeenNthCalledWith(
-      2,
-      expect.stringMatching(timeRegex)
-    )
-    expect(debugMock).toHaveBeenNthCalledWith(
-      3,
-      expect.stringMatching(timeRegex)
-    )
-    expect(setOutputMock).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      expect.stringMatching(timeRegex)
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Failed to run test: API returned status code undefined'
     )
   })
 
-  it('sets a failed status', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          return 'this is not a number'
-        default:
-          return ''
+  it('should not throw an error if the API request is successful', async () => {
+    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    core.getInput.mockReturnValue('test-id')
+    mockHttpClient.postJson.mockResolvedValue({
+      statusCode: 200,
+      result: {
+        success: true,
+        result: {
+          success: true
+        }
       }
     })
 
-    await main.run()
-    expect(runMock).toHaveReturned()
+    await expect(main.run()).resolves.not.toThrow()
 
-    // Verify that all of the core library functions were called correctly
-    expect(setFailedMock).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds not a number'
-    )
-  })
-
-  it('fails if no input is provided', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          throw new Error('Input required and not supplied: milliseconds')
-        default:
-          return ''
-      }
-    })
-
-    await main.run()
-    expect(runMock).toHaveReturned()
-
-    // Verify that all of the core library functions were called correctly
-    expect(setFailedMock).toHaveBeenNthCalledWith(
-      1,
-      'Input required and not supplied: milliseconds'
-    )
+    expect(core.setFailed).not.toHaveBeenCalled()
   })
 })

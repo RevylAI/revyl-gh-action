@@ -1,5 +1,5 @@
 const core = require('@actions/core')
-const { wait } = require('./wait')
+const httpm = require('@actions/http-client')
 
 /**
  * The main function for the action.
@@ -7,18 +7,43 @@ const { wait } = require('./wait')
  */
 async function run() {
   try {
-    const ms = core.getInput('milliseconds', { required: true })
+    const testId = core.getInput('test-id', { required: true })
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    // `who-to-greet` input defined in action metadata fil
+    if (!process.env['COGNISIM_API_TOKEN']) {
+      throw Error(
+        'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
+      )
+    }
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
-
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const client = new httpm.HttpClient('cognisim-run-action', [], {
+      headers: {
+        Authorization: `Bearer ${process.env['COGNISIM_API_TOKEN']}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    console.log(testId)
+    const url = 'https://device.cognisim.io/execute_test_id'
+    const body = { test_id: testId }
+    const res = await client.postJson(url, body)
+    //console.log(res)
+    if (res.statusCode !== 200) {
+      throw Error(
+        `Failed to run test: API returned status code ${res.statusCode}`
+      )
+    }
+    if (res.result && res.result.success) {
+      console.log(
+        'Test run successfully and passed View Artifacts at cognisim.io/testhistory '
+      )
+      return res.result.success
+    } else if (res.result && !res.result.success) {
+      throw Error(
+        `Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning`
+      )
+    } else {
+      throw Error(`Failed to run test: No result returned from API`)
+    }
   } catch (error) {
     // Fail the workflow run if an error occurs
     core.setFailed(error.message)
