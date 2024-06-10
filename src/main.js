@@ -8,10 +8,12 @@ const httpm = require('@actions/http-client')
 async function run() {
   try {
     const testId = core.getInput('test-id', { required: true })
-    const deviceUrl = core.getInput('cognisim-device-url', { required: false })  // Retrieve input
+    const deviceUrl = core.getInput('cognisim-device-url', { required: false }) // Retrieve input
 
     if (!process.env['COGNISIM_API_TOKEN']) {
-      throw Error('Missing COGNISIM_API_TOKEN get API token from cognisim settings')
+      throw Error(
+        'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
+      )
     }
 
     const client = new httpm.HttpClient('cognisim-run-action', [], {
@@ -21,20 +23,26 @@ async function run() {
       }
     })
 
-    const url = deviceUrl || 'https://device.cognisim.io/execute_test_id'  // Use the input if provided
-    console.log("Test ID:", testId)
-    console.log("URL:", url)
+    const url = deviceUrl || 'https://device.cognisim.io/execute_test_id' // Use the input if provided
+    console.log('Test ID:', testId)
+    console.log('URL:', url)
     const body = { test_id: testId }
     const res = await client.postJson(url, body)
 
     if (res.statusCode !== 200) {
-      throw Error(`Failed to run test: API returned status code ${res.statusCode}`)
+      throw Error(
+        `Failed to run test: API returned status code ${res.statusCode}`
+      )
     }
     if (res.result && res.result.success) {
-      console.log('Test run successfully and passed View Artifacts at cognisim.io/testhistory ')
+      console.log(
+        'Test run successfully and passed View Artifacts at cognisim.io/testhistory '
+      )
       return res.result.success
     } else if (res.result && !res.result.success) {
-      throw Error('Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning')
+      throw Error(
+        'Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning'
+      )
     } else {
       throw Error('Failed to run test: No result returned from API')
     }

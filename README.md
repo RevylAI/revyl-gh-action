@@ -178,21 +178,19 @@ For example workflow runs, check out the
 
 # CogniSim Github Action
 
-
 Setup Github Action to run CogniSim on your repository.
-
 
 SETUP
 
-Go to 
-For a comprehensive guide on setting up and using CogniSim for more in-depth testing beyond basic assertions, please visit the CogniSim documentation:
+Go to For a comprehensive guide on setting up and using CogniSim for more
+in-depth testing beyond basic assertions, please visit the CogniSim
+documentation:
 [https://docs.cognisim.io/introduction](https://docs.cognisim.io/introduction)
-
 
 Create CogniSim API key on settings Page
 
-
 Add the following code to your workflow file
+
 ```yaml
 - uses: actions/checkout@v3
   with:
@@ -205,5 +203,4 @@ Add the following code to your workflow file
     COGNISIM_DEVICE_URL: ${{ secrets.COGNISIM_DEVICE_URL }}
   with:
     test-id: <test-id>
-
 ```

@@ -56,8 +56,11 @@ jobs:
       - name: Test Local Action
         id: test-action
         uses: ./
+        env:
+          COGNISIM_API_TOKEN: ${{ secrets.COGNISIM_API_KEY }}
         with:
-          milliseconds: 1000
+          cognisim-device-url: 'https://device-staging.cognisim.io/execute_test_id'
+          test-id: 'ebfcffd7-43c6-4c76-b815-d7816a612dd1'
 
       - name: Print Output
         id: output

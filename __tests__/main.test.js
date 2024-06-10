@@ -60,27 +60,29 @@ describe('run function', () => {
   })
 
   it('should use COGNISIM_DEVICE_URL as the endpoint if set', async () => {
-    const customUrl = 'https://device-staging.cognisim.io/execute_test_id';
-    process.env['COGNISIM_API_TOKEN'] = 'test-token';
-    core.getInput.mockReturnValueOnce('test-id');
-    core.getInput.mockReturnValueOnce(customUrl);
- 
+    const customUrl = 'https://device-staging.cognisim.io/execute_test_id'
+    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    core.getInput.mockReturnValueOnce('test-id')
+    core.getInput.mockReturnValueOnce(customUrl)
+
     mockHttpClient.postJson.mockResolvedValue({
       statusCode: 200,
       result: {
         success: true
       }
-    });
+    })
 
-    await main.run();
+    await main.run()
 
-    expect(mockHttpClient.postJson).toHaveBeenCalledWith(customUrl, expect.anything());
-    expect(core.setFailed).not.toHaveBeenCalled();
-  });
+    expect(mockHttpClient.postJson).toHaveBeenCalledWith(
+      customUrl,
+      expect.anything()
+    )
+    expect(core.setFailed).not.toHaveBeenCalled()
+  })
 
   // Clean up environment variables after each test
   afterEach(() => {
-    delete process.env['COGNISIM_API_TOKEN'];
-  });
-});
-
+    delete process.env['COGNISIM_API_TOKEN']
+  })
+})

@@ -2735,8 +2735,8 @@ const httpm = __nccwpck_require__(255)
 async function run() {
   try {
     const testId = core.getInput('test-id', { required: true })
+    const deviceUrl = core.getInput('cognisim-device-url', { required: false }) // Retrieve input
 
-    // `who-to-greet` input defined in action metadata fil
     if (!process.env['COGNISIM_API_TOKEN']) {
       throw Error(
         'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
@@ -2749,11 +2749,13 @@ async function run() {
         'Content-Type': 'application/json'
       }
     })
-    console.log(testId)
-    const url = 'https://device.cognisim.io/execute_test_id'
+
+    const url = deviceUrl || 'https://device.cognisim.io/execute_test_id' // Use the input if provided
+    console.log('Test ID:', testId)
+    console.log('URL:', url)
     const body = { test_id: testId }
     const res = await client.postJson(url, body)
-    //console.log(res)
+
     if (res.statusCode !== 200) {
       throw Error(
         `Failed to run test: API returned status code ${res.statusCode}`
@@ -2766,13 +2768,12 @@ async function run() {
       return res.result.success
     } else if (res.result && !res.result.success) {
       throw Error(
-        `Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning`
+        'Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning'
       )
     } else {
-      throw Error(`Failed to run test: No result returned from API`)
+      throw Error('Failed to run test: No result returned from API')
     }
   } catch (error) {
-    // Fail the workflow run if an error occurs
     core.setFailed(error.message)
   }
 }
