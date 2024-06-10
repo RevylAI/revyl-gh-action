@@ -202,6 +202,7 @@ Add the following code to your workflow file
   uses: CogniSim/cognisim-gh-action@v1
   env:
     COGNISIM_API_KEY: ${{ secrets.COGNISIM_API_KEY }}
+    COGNISIM_DEVICE_URL: ${{ secrets.COGNISIM_DEVICE_URL }}
   with:
     test-id: <test-id>
 

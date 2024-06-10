@@ -23,7 +23,12 @@ async function run() {
       }
     })
     console.log(testId)
-    const url = 'https://device.cognisim.io/execute_test_id'
+    let url;
+    if (process.env['COGNISIM_DEVICE_URL']) {
+      url = process.env['COGNISIM_DEVICE_URL']
+    } else {
+      url = 'https://device.cognisim.io/execute_test_id'
+    }
     const body = { test_id: testId }
     const res = await client.postJson(url, body)
     //console.log(res)
