@@ -62,8 +62,9 @@ describe('run function', () => {
   it('should use COGNISIM_DEVICE_URL as the endpoint if set', async () => {
     const customUrl = 'https://custom.endpoint.com';
     process.env['COGNISIM_API_TOKEN'] = 'test-token';
-    process.env['COGNISIM_DEVICE_URL'] = customUrl;
-    core.getInput.mockReturnValue('test-id');
+    core.getInput.mockReturnValueOnce('test-id');
+    core.getInput.mockReturnValueOnce(customUrl);
+ 
     mockHttpClient.postJson.mockResolvedValue({
       statusCode: 200,
       result: {
@@ -80,7 +81,6 @@ describe('run function', () => {
   // Clean up environment variables after each test
   afterEach(() => {
     delete process.env['COGNISIM_API_TOKEN'];
-    delete process.env['COGNISIM_DEVICE_URL'];
   });
 });
 

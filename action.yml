@@ -7,6 +7,9 @@ inputs:
   test-id:
     description: 'The test id to run.'
     required: true
+  cognisim-device-url:
+    description: 'The Cognisim device URL to use.'
+    required: false
 
 # Define your outputs here.
 outputs:
