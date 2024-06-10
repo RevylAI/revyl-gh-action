@@ -25,10 +25,11 @@ async function run() {
     console.log(testId)
     let url;
     if (process.env['COGNISIM_DEVICE_URL']) {
-      url = process.env['COGNISIM_DEVICE_URL']
+      url = process.env['COGNISIM_DEVICE_URL'] + '/execute_test_id'
     } else {
       url = 'https://device.cognisim.io/execute_test_id'
     }
+    console.log(url)
     const body = { test_id: testId }
     const res = await client.postJson(url, body)
     //console.log(res)
