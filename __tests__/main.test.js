@@ -58,4 +58,29 @@ describe('run function', () => {
 
     expect(core.setFailed).not.toHaveBeenCalled()
   })
-})
+
+  it('should use COGNISIM_DEVICE_URL as the endpoint if set', async () => {
+    const customUrl = 'https://custom.endpoint.com';
+    process.env['COGNISIM_API_TOKEN'] = 'test-token';
+    process.env['COGNISIM_DEVICE_URL'] = customUrl;
+    core.getInput.mockReturnValue('test-id');
+    mockHttpClient.postJson.mockResolvedValue({
+      statusCode: 200,
+      result: {
+        success: true
+      }
+    });
+
+    await main.run();
+
+    expect(mockHttpClient.postJson).toHaveBeenCalledWith(customUrl, expect.anything());
+    expect(core.setFailed).not.toHaveBeenCalled();
+  });
+
+  // Clean up environment variables after each test
+  afterEach(() => {
+    delete process.env['COGNISIM_API_TOKEN'];
+    delete process.env['COGNISIM_DEVICE_URL'];
+  });
+});
+
