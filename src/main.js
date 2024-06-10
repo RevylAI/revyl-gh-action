@@ -22,8 +22,8 @@ async function run() {
     })
 
     const url = deviceUrl || 'https://device.cognisim.io/execute_test_id'  // Use the input if provided
-    console.log(testId)
-    console.log(url)
+    console.log("Test ID:", testId)
+    console.log("URL:", url)
     const body = { test_id: testId }
     const res = await client.postJson(url, body)
 
