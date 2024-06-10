@@ -8,7 +8,7 @@ const httpm = require('@actions/http-client')
 async function run() {
   try {
     const testId = core.getInput('test-id', { required: true })
-    const deviceUrl = core.getInput('cognisim-device-url')  // Retrieve input
+    const deviceUrl = core.getInput('cognisim-device-url', { required: false })  // Retrieve input
 
     if (!process.env['COGNISIM_API_TOKEN']) {
       throw Error('Missing COGNISIM_API_TOKEN get API token from cognisim settings')

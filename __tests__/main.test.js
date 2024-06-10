@@ -60,7 +60,7 @@ describe('run function', () => {
   })
 
   it('should use COGNISIM_DEVICE_URL as the endpoint if set', async () => {
-    const customUrl = 'https://custom.endpoint.com';
+    const customUrl = 'https://device-staging.cognisim.io/execute_test_id';
     process.env['COGNISIM_API_TOKEN'] = 'test-token';
     core.getInput.mockReturnValueOnce('test-id');
     core.getInput.mockReturnValueOnce(customUrl);
