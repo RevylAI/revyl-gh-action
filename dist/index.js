@@ -2763,13 +2763,13 @@ async function run() {
     }
     if (res.result && res.result.success) {
       core.setOutput('success', 'true')
-      core.setOutput('result', res.result)
+      core.setOutput('result', JSON.stringify(res.result))
       console.log(
         'Test run successfully and passed View Artifacts at cognisim.io/testhistory '
       )
       return res.result.success
     } else if (res.result && !res.result.success) {
-      core.setOutput('result', res.result)
+      core.setOutput('result', JSON.stringify(res.result))
       core.setOutput('success', 'false')
       throw Error(
         'Test ran successfully but failed: View Artifacts at cognisim.io/testhistory with full reasoning'
