@@ -2735,17 +2735,15 @@ const httpm = __nccwpck_require__(255)
 async function run() {
   try {
     const testId = core.getInput('test-id', { required: true })
-    const deviceUrl = core.getInput('cognisim-device-url', { required: false }) // Retrieve input
+    const deviceUrl = core.getInput('revyl-device-url', { required: false }) // Retrieve input
 
-    if (!process.env['COGNISIM_API_TOKEN']) {
-      throw Error(
-        'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
-      )
+    if (!process.env['REVYL_API_KEY']) {
+      throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
 
-    const client = new httpm.HttpClient('cognisim-run-action', [], {
+    const client = new httpm.HttpClient('revyl-run-action', [], {
       headers: {
-        Authorization: `Bearer ${process.env['COGNISIM_API_TOKEN']}`,
+        Authorization: `Bearer ${process.env['REVYL_API_KEY']}`,
         'Content-Type': 'application/json'
       }
     })
@@ -2769,6 +2767,9 @@ async function run() {
       )
       return res.result.success
     } else if (res.result && !res.result.success) {
+      if (res.result.report_link) {
+        core.setOutput('report_link', res.result.report_link)
+      }
       core.setOutput('result', JSON.stringify(res.result))
       core.setOutput('success', 'false')
       throw Error(

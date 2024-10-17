@@ -182,12 +182,7 @@ Setup Github Action to run CogniSim on your repository.
 
 SETUP
 
-Go to For a comprehensive guide on setting up and using CogniSim for more
-in-depth testing beyond basic assertions, please visit the CogniSim
-documentation:
-[https://docs.cognisim.io/introduction](https://docs.cognisim.io/introduction)
-
-Create CogniSim API key on settings Page
+Create Revyl API key on settings Page
 
 Add the following code to your workflow file
 
@@ -197,10 +192,9 @@ Add the following code to your workflow file
     fetch-depth: 0
 
 - name: Run tests using CogniSim
-  uses: CogniSim/cognisim-gh-action@v1
+  uses: RevylAI/revyl-gh-action@v1
   env:
-    COGNISIM_API_KEY: ${{ secrets.COGNISIM_API_KEY }}
-    COGNISIM_DEVICE_URL: ${{ secrets.COGNISIM_DEVICE_URL }}
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
   with:
     test-id: <test-id>
 ```

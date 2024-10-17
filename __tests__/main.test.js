@@ -17,15 +17,15 @@ describe('run function', () => {
     httpm.HttpClient.mockReturnValue(mockHttpClient)
   })
 
-  it('should throw an error if COGNISIM_API_TOKEN is not set', async () => {
+  it('should throw an error if REVYL_API_KEY is not set', async () => {
     await main.run()
     expect(core.setFailed).toHaveBeenCalledWith(
-      'Missing COGNISIM_API_TOKEN get API token from cognisim settings'
+      'Missing REVYL_API_KEY get API token from revyl settings'
     )
   })
 
   it('should call setFailed if the API request fails', async () => {
-    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    process.env['REVYL_API_KEY'] = 'test-token'
     core.getInput.mockReturnValue('test-id')
     mockHttpClient.postJson.mockResolvedValue({
       message: {
@@ -42,7 +42,7 @@ describe('run function', () => {
   })
 
   it('should not throw an error if the API request is successful', async () => {
-    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    process.env['REVYL_API_KEY'] = 'test-token'
     core.getInput.mockReturnValue('test-id')
     mockHttpClient.postJson.mockResolvedValue({
       statusCode: 200,
@@ -61,7 +61,7 @@ describe('run function', () => {
 
   it('should use COGNISIM_DEVICE_URL as the endpoint if set', async () => {
     const customUrl = 'https://device-staging.cognisim.io/execute_test_id'
-    process.env['COGNISIM_API_TOKEN'] = 'test-token'
+    process.env['REVYL_API_KEY'] = 'test-token'
     core.getInput.mockReturnValueOnce('test-id')
     core.getInput.mockReturnValueOnce(customUrl)
 
@@ -83,6 +83,6 @@ describe('run function', () => {
 
   // Clean up environment variables after each test
   afterEach(() => {
-    delete process.env['COGNISIM_API_TOKEN']
+    delete process.env['REVYL_API_KEY']
   })
 })

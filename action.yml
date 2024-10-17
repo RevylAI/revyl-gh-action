@@ -7,8 +7,8 @@ inputs:
   test-id:
     description: 'The test id to run.'
     required: true
-  cognisim-device-url:
-    description: 'The Cognisim device URL to use.'
+  revyl-device-url:
+    description: 'The Revyl device URL server to use.'
     required: false
 
 # Define your outputs here.
@@ -17,6 +17,8 @@ outputs:
     description: 'Whether or not the test fails.'
   result:
     description: 'The result of the test.'
+  report_link:
+    description: 'The link to the report to view the test results.'
 
 runs:
   using: node20
