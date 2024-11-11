@@ -2736,7 +2736,7 @@ async function run() {
   try {
     const testId = core.getInput('test-id', { required: true })
     const deviceUrl = core.getInput('revyl-device-url', { required: false }) // Retrieve input
-
+    const retries = core.getInput('retries', { required: false }) || 1 // Retrieve input
     if (!process.env['REVYL_API_KEY']) {
       throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
@@ -2751,7 +2751,7 @@ async function run() {
     const url = deviceUrl || 'https://device.cognisim.io/execute_test_id' // Use the input if provided
     console.log('Test ID:', testId)
     console.log('URL:', url)
-    const body = { test_id: testId }
+    const body = { test_id: testId, retries: retries }
     const res = await client.postJson(url, body)
 
     if (res.statusCode !== 200) {
@@ -2765,10 +2765,7 @@ async function run() {
         // core.setOutput('report_link', res.result.html_report_link)
       return res.result.success
     } else if (res.result && !res.result.success) {
-      // if (res.result.html_report_link) {
-      //   core.setOutput('report_link', res.result.html_report_link)
-      // }
-      
+
       core.setOutput('success', 'false')
       throw Error(
         `Test ran successfully but failed: View Artifacts at test with full reasoning`

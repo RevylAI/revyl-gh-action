@@ -10,6 +10,9 @@ inputs:
   revyl-device-url:
     description: 'The Revyl device URL server to use.'
     required: false
+  retries:
+    description: 'The number of times to retry the test.'
+    required: false
 
 # Define your outputs here.
 outputs:
