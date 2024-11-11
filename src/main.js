@@ -34,20 +34,17 @@ async function run() {
     }
     if (res.result && res.result.success) {
       core.setOutput('success', 'true')
-      core.setOutput('result', JSON.stringify(res.result))
-      core.setOutput('report_link', res.report_link)
-      console.log(
-        `Test run successfully and passed View Artifacts at ${res.report_link}`
-      )
+        // core.setOutput('result', JSON.stringify(res.result))
+        // core.setOutput('report_link', res.result.html_report_link)
       return res.result.success
     } else if (res.result && !res.result.success) {
-      if (res.result.report_link) {
-        core.setOutput('report_link', res.result.report_link)
-      }
-      core.setOutput('result', JSON.stringify(res.result))
+      // if (res.result.html_report_link) {
+      //   core.setOutput('report_link', res.result.html_report_link)
+      // }
+      
       core.setOutput('success', 'false')
       throw Error(
-        `Test ran successfully but failed: View Artifacts at ${res.result.report_link} with full reasoning`
+        `Test ran successfully but failed: View Artifacts at test with full reasoning`
       )
     } else {
       throw Error('Failed to run test: No result returned from API')

@@ -15,11 +15,6 @@ inputs:
 outputs:
   success:
     description: 'Whether or not the test fails.'
-  result:
-    description: 'The result of the test.'
-  report_link:
-    description: 'The link to the report to view the test results.'
-
 runs:
   using: node20
   main: dist/index.js
