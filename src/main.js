@@ -10,6 +10,7 @@ async function run() {
     const testId = core.getInput('test-id', { required: true })
     const deviceUrl = core.getInput('revyl-device-url', { required: false }) // Retrieve input
     const retries = core.getInput('retries', { required: false }) || 1 // Retrieve input
+    const llm_model_name = core.getInput('llm_model_name', { required: false }) || 'gpt-4o' // Retrieve input
     if (!process.env['REVYL_API_KEY']) {
       throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
@@ -24,7 +25,7 @@ async function run() {
     const url = deviceUrl || 'https://device.cognisim.io/execute_test_id' // Use the input if provided
     console.log('Test ID:', testId)
     console.log('URL:', url)
-    const body = { test_id: testId, retries: retries }
+    const body = { test_id: testId, retries: retries, llm_model_name: llm_model_name }
     const res = await client.postJson(url, body)
 
     if (res.statusCode !== 200) {

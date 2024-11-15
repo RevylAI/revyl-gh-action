@@ -13,6 +13,9 @@ inputs:
   retries:
     description: 'The number of times to retry the test.'
     required: false
+  llm-model-name:
+    description: 'The LLM model name to use.'
+    required: false
 
 # Define your outputs here.
 outputs:
