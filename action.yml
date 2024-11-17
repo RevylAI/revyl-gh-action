@@ -13,10 +13,11 @@ inputs:
   retries:
     description: 'The number of times to retry the test.'
     required: false
-  llm-model-name:
+  llm_model_name:
     description: 'The LLM model name to use.'
     required: false
-
+  multimodal:
+    description: 'Whether or not run the test multimodal'
 # Define your outputs here.
 outputs:
   success:
