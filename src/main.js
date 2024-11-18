@@ -11,7 +11,7 @@ async function run() {
     const deviceUrl = core.getInput('revyl-device-url', { required: false }) // Retrieve input
     const retries = core.getInput('retries', { required: false }) || 1 // Retrieve input
     const llm_model_name = core.getInput('llm_model_name', { required: false }) || 'gpt-4o' // Retrieve input
-    const multimodal = core.getInput('multimodal', {required: false})
+    const multimodal = core.getInput('multimodal', {required: false}) || false // Retrieve input
     if (!process.env['REVYL_API_KEY']) {
       throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
