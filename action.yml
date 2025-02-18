@@ -4,9 +4,12 @@ author: 'CogniSim'
 
 # Define your inputs here.
 inputs:
+  workflow-id:
+    description: 'The workflow id to run.'
+    required: false
   test-id:
     description: 'The test id to run.'
-    required: true
+    required: false
   revyl-device-url:
     description: 'The Revyl device URL server to use.'
     required: false

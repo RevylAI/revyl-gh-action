@@ -7,11 +7,23 @@ const httpm = require('@actions/http-client')
  */
 async function run() {
   try {
-    const testId = core.getInput('test-id', { required: true })
-    const deviceUrl = core.getInput('revyl-device-url', { required: false }) // Retrieve input
-    const retries = core.getInput('retries', { required: false }) || 1 // Retrieve input
-    const llm_model_name = core.getInput('llm_model_name', { required: false }) || 'gpt-4o' // Retrieve input
-    const multimodal = core.getInput('multimodal', {required: false}) || false // Retrieve input
+    // Get inputs and validate
+    const testId = core.getInput('test-id', { required: false })
+    const workflowId = core.getInput('workflow-id', { required: false })
+    const deviceUrl = core.getInput('revyl-device-url', { required: false })
+    const retries = core.getInput('retries', { required: false }) || 1
+    const llm_model_name =
+      core.getInput('llm_model_name', { required: false }) || 'gpt-4'
+    const multimodal = core.getInput('multimodal', { required: false }) || false
+
+    // Validate that either testId or workflowId is provided
+    if (!testId && !workflowId) {
+      throw Error('Either test-id or workflow-id must be provided')
+    }
+    if (testId && workflowId) {
+      throw Error('Cannot provide both test-id and workflow-id')
+    }
+
     if (!process.env['REVYL_API_KEY']) {
       throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
@@ -23,30 +35,39 @@ async function run() {
       }
     })
 
-    const url = deviceUrl || 'https://device.cognisim.io/execute_test_id' // Use the input if provided
-    console.log('Test ID:', testId)
+    // Determine the endpoint based on whether we're running a test or workflow
+    const defaultUrl = testId
+      ? 'https://device.cognisim.io/execute_test_id'
+      : 'https://device.cognisim.io/execute_workflow_id'
+    const url = deviceUrl || defaultUrl
+
+    console.log('ID:', testId || workflowId)
     console.log('URL:', url)
-    const body = { test_id: testId, retries: retries, llm_model_name: llm_model_name, multimodal: multimodal }
+
+    // Construct the body based on whether we're running a test or workflow
+    const body = testId
+      ? { test_id: testId, retries, llm_model_name, multimodal }
+      : { workflow_id: workflowId, retries, llm_model_name, multimodal }
+
     const res = await client.postJson(url, body)
 
     if (res.statusCode !== 200) {
       throw Error(
-        `Failed to run test: API returned status code ${res.statusCode}`
+        `Failed to run ${testId ? 'test' : 'workflow'}: API returned status code ${res.statusCode}`
       )
     }
     if (res.result && res.result.success) {
       core.setOutput('success', 'true')
-        // core.setOutput('result', JSON.stringify(res.result))
-        // core.setOutput('report_link', res.result.html_report_link)
       return res.result.success
     } else if (res.result && !res.result.success) {
-
       core.setOutput('success', 'false')
       throw Error(
-        `Test ran successfully but failed: View Artifacts at test with full reasoning`
+        `${testId ? 'Test' : 'Workflow'} ran successfully but failed: View Artifacts for full reasoning`
       )
     } else {
-      throw Error('Failed to run test: No result returned from API')
+      throw Error(
+        `Failed to run ${testId ? 'test' : 'workflow'}: No result returned from API`
+      )
     }
   } catch (error) {
     core.setFailed(error.message)
