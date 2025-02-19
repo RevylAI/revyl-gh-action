@@ -7,6 +7,11 @@ const httpm = require('@actions/http-client')
  */
 async function run() {
   try {
+    // Check for API key first
+    if (!process.env['REVYL_API_KEY']) {
+      throw Error('Missing REVYL_API_KEY get API token from revyl settings')
+    }
+
     // Get inputs and validate
     const testId = core.getInput('test-id', { required: false })
     const workflowId = core.getInput('workflow-id', { required: false })
@@ -22,10 +27,6 @@ async function run() {
     }
     if (testId && workflowId) {
       throw Error('Cannot provide both test-id and workflow-id')
-    }
-
-    if (!process.env['REVYL_API_KEY']) {
-      throw Error('Missing REVYL_API_KEY get API token from revyl settings')
     }
 
     const client = new httpm.HttpClient('revyl-run-action', [], {
