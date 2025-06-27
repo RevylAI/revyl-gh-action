@@ -19,12 +19,41 @@ inputs:
   llm_model_name:
     description: 'The LLM model name to use.'
     required: false
-  multimodal:
-    description: 'Whether or not run the test multimodal'
+  timeout:
+    description:
+      'Timeout in seconds for the execution to complete. Default 3600.'
+    required: false
+  poll-interval:
+    description:
+      'Polling interval in seconds when checking execution status. Default 15.'
+    required: false
+
 # Define your outputs here.
 outputs:
   success:
-    description: 'Whether or not the test fails.'
+    description: 'Whether or not the test/workflow succeeded.'
+  task_id:
+    description: 'The task identifier returned by the async API.'
+  execution_time:
+    description: 'Total execution time reported by the platform.'
+  platform:
+    description: 'Execution platform (web, ios, android).'
+  error_message:
+    description: 'Error message if execution failed.'
+  # Workflow-specific outputs
+  total_tests:
+    description: 'Total number of tests in the workflow.'
+  completed_tests:
+    description: 'Number of tests completed in the workflow.'
+  passed_tests:
+    description: 'Number of tests that passed in the workflow.'
+  failed_tests:
+    description: 'Number of tests that failed in the workflow.'
+  # Test-specific outputs
+  total_steps:
+    description: 'Total number of steps in the test.'
+  completed_steps:
+    description: 'Number of steps completed in the test.'
 runs:
   using: node20
   main: dist/index.js

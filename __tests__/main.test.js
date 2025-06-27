@@ -12,7 +12,8 @@ describe('run function', () => {
     jest.clearAllMocks()
 
     mockHttpClient = {
-      postJson: jest.fn()
+      postJson: jest.fn(),
+      getJson: jest.fn()
     }
     httpm.HttpClient.mockReturnValue(mockHttpClient)
   })
@@ -60,7 +61,7 @@ describe('run function', () => {
     await main.run()
 
     expect(core.setFailed).toHaveBeenCalledWith(
-      'Failed to run test: API returned status code 400'
+      'Failed to queue test: API returned status code 400'
     )
   })
 
@@ -81,11 +82,11 @@ describe('run function', () => {
   })
 
   it('should use the provided device URL if set', async () => {
-    const customUrl = 'https://device-staging.cognisim.io/execute_test_id'
+    const customBaseUrl = 'https://device-staging.cognisim.io'
     process.env['REVYL_API_KEY'] = 'test-token'
     core.getInput.mockReturnValueOnce('test-id') // test-id
     core.getInput.mockReturnValueOnce(null) // workflow-id
-    core.getInput.mockReturnValueOnce(customUrl) // deviceUrl
+    core.getInput.mockReturnValueOnce(customBaseUrl) // deviceUrl
 
     mockHttpClient.postJson.mockResolvedValue({
       statusCode: 200,
@@ -97,7 +98,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      customUrl,
+      `${customBaseUrl}/api/execute_test_id_async`,
       expect.anything()
     )
     expect(core.setFailed).not.toHaveBeenCalled()
