@@ -35,7 +35,8 @@ inputs:
       provided).'
     required: false
   backend-url:
-    description: 'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
+    description:
+      'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
     required: false
     default: 'https://backend-staging.cognisim.io'
   timeout:
