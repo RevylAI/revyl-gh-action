@@ -24,7 +24,7 @@ async function run() {
     const packageName = core.getInput('package-name', { required: false })
     const backendUrl =
       core.getInput('backend-url', { required: false }) ||
-      'https://backend-staging.cognisim.io'
+      'https://api.revyl.dev'
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '1800',
       10
@@ -76,7 +76,7 @@ async function run() {
       // Handle Expo URL upload using the from-url endpoint
       core.info(`Uploading build from Expo URL: ${expoUrl}`)
 
-      const fromUrlEndpoint = `/v1/builds/vars/${buildVarId}/versions/from-url`
+      const fromUrlEndpoint = `/builds/vars/${buildVarId}/versions/from-url`
       const fromUrlBody = {
         version: version,
         from_url: expoUrl,
@@ -121,7 +121,7 @@ async function run() {
       }
 
       const fileName = path.basename(filePath)
-      const uploadUrlEndpoint = `/api/v1/builds/vars/${buildVarId}/versions/upload-url`
+      const uploadUrlEndpoint = `/builds/vars/${buildVarId}/versions/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
         file_name: fileName
@@ -131,7 +131,7 @@ async function run() {
         `Getting upload URL from: ${backendUrl}${uploadUrlEndpoint}?${uploadUrlParams}`
       )
 
-      // Get upload URL
+      // Get upload URL - NOTE: This should be a POST request according to the backend
       const uploadUrlRes = await client.postJson(
         `${backendUrl}${uploadUrlEndpoint}?${uploadUrlParams}`,
         {}
