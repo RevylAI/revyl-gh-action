@@ -11,9 +11,9 @@ inputs:
     description: 'Version string to verify resolution for.'
     required: true
   backend-url:
-    description: 'Revyl backend URL. Defaults to https://api.revyl.dev'
+    description: 'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
     required: false
-    default: 'https://api.revyl.dev'
+    default: 'https://backend-staging.cognisim.io'
   timeout:
     description: 'Timeout in seconds for the verification. Default 300 (5 minutes).'
     required: false

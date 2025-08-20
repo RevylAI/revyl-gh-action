@@ -35,9 +35,9 @@ inputs:
       provided).'
     required: false
   backend-url:
-    description: 'Revyl backend URL. Defaults to https://api.revyl.dev'
+    description: 'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
     required: false
-    default: 'https://api.revyl.dev'
+    default: 'https://backend-staging.cognisim.io'
   timeout:
     description:
       'Timeout in seconds for the upload operation. Default 1800 (30 minutes).'

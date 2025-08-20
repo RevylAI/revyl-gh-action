@@ -24,7 +24,7 @@ async function run() {
     const packageName = core.getInput('package-name', { required: false })
     const backendUrl =
       core.getInput('backend-url', { required: false }) ||
-      'https://api.revyl.dev'
+      'https://backend-staging.cognisim.io'
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '1800',
       10
@@ -76,7 +76,7 @@ async function run() {
       // Handle Expo URL upload using the from-url endpoint
       core.info(`Uploading build from Expo URL: ${expoUrl}`)
 
-      const fromUrlEndpoint = `/builds/vars/${buildVarId}/versions/from-url`
+      const fromUrlEndpoint = `/api/v1/builds/vars/${buildVarId}/versions/from-url`
       const fromUrlBody = {
         version: version,
         from_url: expoUrl,
@@ -121,7 +121,7 @@ async function run() {
       }
 
       const fileName = path.basename(filePath)
-      const uploadUrlEndpoint = `/builds/vars/${buildVarId}/versions/upload-url`
+      const uploadUrlEndpoint = `/api/v1/builds/vars/${buildVarId}/versions/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
         file_name: fileName
@@ -186,7 +186,7 @@ async function run() {
       // Extract package ID if possible
       try {
         core.info('Attempting to extract package ID...')
-        const extractEndpoint = `/builds/versions/${versionId}/extract-package-id`
+        const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
         const extractRes = await client.postJson(
           `${backendUrl}${extractEndpoint}`,
           {}
@@ -206,7 +206,7 @@ async function run() {
 
       // Complete the upload
       core.info('Completing upload...')
-      const completeEndpoint = `/builds/versions/${versionId}/complete-upload`
+      const completeEndpoint = `/api/v1/builds/versions/${versionId}/complete-upload`
       const completeBody = {
         version_id: versionId, // Add this required field
         metadata: parsedMetadata,

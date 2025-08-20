@@ -17,7 +17,7 @@ async function run() {
     const version = core.getInput('version', { required: true })
     const backendUrl =
       core.getInput('backend-url', { required: false }) ||
-      'https://api.revyl.dev'
+      'https://backend-staging.cognisim.io'
 
     const client = new httm.HttpClient('revyl-verify-resolution-action', [], {
       headers: {
@@ -30,7 +30,7 @@ async function run() {
     core.info(`Build Variable: ${buildVarId}`)
 
     // Call the resolve endpoint
-    const resolveEndpoint = `/builds/resolve?include_download_url=true`
+    const resolveEndpoint = `/api/v1/builds/resolve?include_download_url=true`
     const resolveBody = {
       build_var_id: buildVarId,
       pinned_version: version
