@@ -207,9 +207,16 @@ async function run() {
       // Complete the upload
       core.info('Completing upload...')
       const completeEndpoint = `/api/v1/builds/versions/${versionId}/complete-upload`
+      
+      // Add file_name to metadata so backend uses correct S3 key
+      const completeMetadata = {
+        ...parsedMetadata,
+        file_name: fileName  // Ensure backend uses the correct filename
+      }
+      
       const completeBody = {
-        version_id: versionId, // Add this required field
-        metadata: parsedMetadata,
+        version_id: versionId,
+        metadata: completeMetadata,
         package_name: packageName || packageId || undefined
       }
 
