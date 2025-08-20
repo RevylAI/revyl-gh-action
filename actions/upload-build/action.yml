@@ -1,0 +1,66 @@
+name: 'Upload Build to Revyl'
+description: 'Upload a build artifact or Expo URL to Revyl build system'
+author: 'Revyl'
+
+# Define your inputs here.
+inputs:
+  build-var-id:
+    description: 'The build variable ID to upload the version to.'
+    required: true
+  version:
+    description:
+      'Version string for this build (must be unique within the build variable).'
+    required: true
+  file-path:
+    description:
+      'Path to the build artifact file (for binary uploads). Mutually exclusive
+      with expo-url.'
+    required: false
+  expo-url:
+    description:
+      'Expo build URL to download and upload. Mutually exclusive with file-path.'
+    required: false
+  expo-headers:
+    description:
+      'JSON string of headers to use when downloading from Expo URL (e.g.,
+      {"Authorization": "Bearer token"}).'
+    required: false
+  metadata:
+    description:
+      'JSON string of additional metadata to store with the build version.'
+    required: false
+  package-name:
+    description:
+      'Package name/identifier for the build (will be auto-extracted if not
+      provided).'
+    required: false
+  backend-url:
+    description: 'Revyl backend URL. Defaults to https://api.revyl.dev'
+    required: false
+    default: 'https://api.revyl.dev'
+  timeout:
+    description:
+      'Timeout in seconds for the upload operation. Default 1800 (30 minutes).'
+    required: false
+    default: '1800'
+
+# Define your outputs here.
+outputs:
+  success:
+    description: 'Whether the upload was successful.'
+  version-id:
+    description: 'The ID of the created build version.'
+  version:
+    description: 'The version string of the uploaded build.'
+  package-id:
+    description: 'The extracted package ID from the build artifact.'
+  artifact-url:
+    description: 'The S3 URL where the artifact is stored.'
+  upload-time:
+    description: 'Time taken for the upload operation in seconds.'
+  error-message:
+    description: 'Error message if upload failed.'
+
+runs:
+  using: node20
+  main: dist/index.js

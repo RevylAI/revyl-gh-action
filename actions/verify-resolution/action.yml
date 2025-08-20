@@ -1,0 +1,37 @@
+name: 'Verify Build Resolution'
+description: 'Verify that a build version can be resolved and downloaded from Revyl'
+author: 'Revyl'
+
+# Define your inputs here.
+inputs:
+  build-var-id:
+    description: 'The build variable ID to verify resolution for.'
+    required: true
+  version:
+    description: 'Version string to verify resolution for.'
+    required: true
+  backend-url:
+    description: 'Revyl backend URL. Defaults to https://api.revyl.dev'
+    required: false
+    default: 'https://api.revyl.dev'
+  timeout:
+    description: 'Timeout in seconds for the verification. Default 300 (5 minutes).'
+    required: false
+    default: '300'
+
+# Define your outputs here.
+outputs:
+  success:
+    description: 'Whether the verification was successful.'
+  version:
+    description: 'The resolved version string.'
+  download-url:
+    description: 'The presigned download URL for the artifact.'
+  artifact-url:
+    description: 'The S3 artifact URL.'
+  error-message:
+    description: 'Error message if verification failed.'
+
+runs:
+  using: node20
+  main: dist/index.js
