@@ -34,11 +34,6 @@ inputs:
       'Package name/identifier for the build (will be auto-extracted if not
       provided).'
     required: false
-  backend-url:
-    description:
-      'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
-    required: false
-    default: 'https://backend-staging.cognisim.io'
   timeout:
     description:
       'Timeout in seconds for the upload operation. Default 1800 (30 minutes).'

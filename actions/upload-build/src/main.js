@@ -22,13 +22,13 @@ async function run() {
     const expoHeaders = core.getInput('expo-headers', { required: false })
     const metadata = core.getInput('metadata', { required: false })
     const packageName = core.getInput('package-name', { required: false })
-    const backendUrl =
-      core.getInput('backend-url', { required: false }) ||
-      'https://backend-staging.cognisim.io'
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '1800',
       10
     )
+
+    // Hardcode the correct backend URL - users shouldn't need to know this
+    const backendUrl = 'https://backend-staging.cognisim.io'
 
     // Validate inputs
     if (!filePath && !expoUrl) {

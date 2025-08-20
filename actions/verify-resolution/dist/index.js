@@ -25663,9 +25663,9 @@ async function run() {
     // Get inputs
     const buildVarId = core.getInput('build-var-id', { required: true })
     const version = core.getInput('version', { required: true })
-    const backendUrl =
-      core.getInput('backend-url', { required: false }) ||
-      'https://backend-staging.cognisim.io'
+
+    // Hardcode the correct backend URL - users shouldn't need to know this
+    const backendUrl = 'https://backend-staging.cognisim.io'
 
     const client = new httm.HttpClient('revyl-verify-resolution-action', [], {
       headers: {

@@ -1,6 +1,5 @@
 name: 'Verify Build Resolution'
-description:
-  'Verify that a build version can be resolved and downloaded from Revyl'
+description: 'Verify that a build version can be resolved and downloaded from Revyl'
 author: 'Revyl'
 
 # Define your inputs here.
@@ -11,14 +10,8 @@ inputs:
   version:
     description: 'Version string to verify resolution for.'
     required: true
-  backend-url:
-    description:
-      'Revyl backend URL. Defaults to https://backend-staging.cognisim.io'
-    required: false
-    default: 'https://backend-staging.cognisim.io'
   timeout:
-    description:
-      'Timeout in seconds for the verification. Default 300 (5 minutes).'
+    description: 'Timeout in seconds for the verification. Default 300 (5 minutes).'
     required: false
     default: '300'
 
