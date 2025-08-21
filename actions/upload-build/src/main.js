@@ -113,27 +113,27 @@ async function run() {
       )
 
       // Extract package ID if not already available
-      if (!packageId) {
-        try {
-          core.info('Attempting to extract package ID from Expo build...')
-          const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
-          const extractRes = await client.postJson(
-            `${backendUrl}${extractEndpoint}`,
-            {}
-          )
+      // if (!packageId) {
+      try {
+        core.info('Attempting to extract package ID from Expo build...')
+        const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
+        const extractRes = await client.postJson(
+          `${backendUrl}${extractEndpoint}`,
+          {}
+        )
 
-          if (extractRes.statusCode === 200 && extractRes.result?.package_id) {
-            packageId = extractRes.result.package_id
-            core.info(`Extracted package ID: ${packageId}`)
-          } else if (extractRes.result?.error) {
-            core.warning(
-              `Could not extract package ID: ${extractRes.result.error}`
-            )
-          }
-        } catch (e) {
-          core.warning(`Could not extract package ID: ${e.message}`)
+        if (extractRes.statusCode === 200 && extractRes.result?.package_id) {
+          packageId = extractRes.result.package_id
+          core.info(`Extracted package ID: ${packageId}`)
+        } else if (extractRes.result?.error) {
+          core.warning(
+            `Could not extract package ID: ${extractRes.result.error}`
+          )
         }
+      } catch (e) {
+        core.warning(`Could not extract package ID: ${e.message}`)
       }
+      // }
     } else {
       // Handle file upload using the upload-url endpoint
       core.info(`Uploading build file: ${filePath}`)
