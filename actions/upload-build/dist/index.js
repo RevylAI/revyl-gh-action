@@ -25759,6 +25759,29 @@ async function run() {
       core.info(
         `Successfully uploaded build from Expo URL. Version ID: ${versionId}`
       )
+
+      // Extract package ID if not already available
+      // if (!packageId) {
+      try {
+        core.info('Attempting to extract package ID from Expo build...')
+        const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
+        const extractRes = await client.postJson(
+          `${backendUrl}${extractEndpoint}`,
+          {}
+        )
+
+        if (extractRes.statusCode === 200 && extractRes.result?.package_id) {
+          packageId = extractRes.result.package_id
+          core.info(`Extracted package ID: ${packageId}`)
+        } else if (extractRes.result?.error) {
+          core.warning(
+            `Could not extract package ID: ${extractRes.result.error}`
+          )
+        }
+      } catch (e) {
+        core.warning(`Could not extract package ID: ${e.message}`)
+      }
+      // }
     } else {
       // Handle file upload using the upload-url endpoint
       core.info(`Uploading build file: ${filePath}`)
@@ -25855,13 +25878,13 @@ async function run() {
       // Complete the upload
       core.info('Completing upload...')
       const completeEndpoint = `/api/v1/builds/versions/${versionId}/complete-upload`
-      
+
       // Add file_name to metadata so backend uses correct S3 key
       const completeMetadata = {
         ...parsedMetadata,
-        file_name: fileName  // Ensure backend uses the correct filename
+        file_name: fileName // Ensure backend uses the correct filename
       }
-      
+
       const completeBody = {
         version_id: versionId,
         metadata: completeMetadata,
@@ -25916,6 +25939,7 @@ async function run() {
 module.exports = {
   run
 }
+
 
 /***/ }),
 
