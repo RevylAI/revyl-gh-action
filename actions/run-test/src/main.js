@@ -56,8 +56,8 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const executionBaseUrl = deviceUrl || 'https://device.cognisim.io'
-    const statusBaseUrl = 'https://backend.cognisim.io'
+    const executionBaseUrl = deviceUrl || 'https://device-staging.cognisim.io'
+    const statusBaseUrl = 'https://backend-staging.cognisim.io'
 
     const initEndpoint = testId
       ? '/api/execute_test_id_async'
