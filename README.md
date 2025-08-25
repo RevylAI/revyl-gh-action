@@ -176,16 +176,16 @@ steps:
 For example workflow runs, check out the
 [Actions tab](https://github.com/actions/javascript-action/actions)! :rocket:
 
-# CogniSim GitHub Actions
+# Revyl GitHub Actions
 
-This repository contains GitHub Actions for integrating with the CogniSim
+This repository contains GitHub Actions for integrating with the Revyl
 platform.
 
 ## Available Actions
 
 ### 1. Run Test Action (`actions/run-test`)
 
-Run CogniSim tests or workflows from your GitHub workflows.
+Run Revyl tests or workflows from your GitHub workflows.
 
 **Setup:**
 
@@ -197,7 +197,7 @@ Run CogniSim tests or workflows from your GitHub workflows.
   with:
     fetch-depth: 0
 
-- name: Run tests using CogniSim
+- name: Run tests using Revyl
   uses: RevylAI/revyl-gh-action/actions/run-test@v1
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -207,7 +207,7 @@ Run CogniSim tests or workflows from your GitHub workflows.
 
 ### 2. Upload Build Action (`actions/upload-build`)
 
-Upload build artifacts to the CogniSim build system. Supports both direct file
+Upload build artifacts to the Revyl build system. Supports both direct file
 uploads and Expo URL ingestion.
 
 **Features:**
@@ -250,7 +250,7 @@ For detailed documentation, see the individual action README files:
 
 ## Getting Started
 
-1. Get your Revyl API key from the CogniSim settings page
+1. Get your Revyl API key from the Revyl settings page
 2. Add it as a secret named `REVYL_API_KEY` in your GitHub repository
 3. Use the actions in your workflows as shown in the examples above
 
