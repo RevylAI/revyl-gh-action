@@ -100,14 +100,14 @@ generation.
 | `success`         | Whether the test/workflow completed successfully (`true`/`false`) |
 | `execution_time`  | Total execution time in HH:MM:SS format                           |
 | `platform`        | Platform the test ran on (web/ios/android)                        |
+| `report_link`     | Direct link to the test report                                    |
+| `total_steps`     | Total number of steps (tests only)                                |
+| `completed_steps` | Number of completed steps (tests only)                            |
+| `total_tests`     | Total number of tests (workflows only)                            |
+| `completed_tests` | Number of completed tests (workflows only)                        |
+| `passed_tests`    | Number of passed tests (workflows only)                           |
+| `failed_tests`    | Number of failed tests (workflows only)                           |
 | `error_message`   | Error message if execution failed                                 |
-| `report_link`     | Shareable link to the detailed test execution report             |
-| `total_steps`     | Total number of steps in the test (test executions only)         |
-| `completed_steps` | Number of steps completed in the test (test executions only)     |
-| `total_tests`     | Total number of tests in the workflow (workflow executions only) |
-| `completed_tests` | Number of tests completed in the workflow (workflow executions only) |
-| `passed_tests`    | Number of tests that passed in the workflow (workflow executions only) |
-| `failed_tests`    | Number of tests that failed in the workflow (workflow executions only) |
 
 ## Real-time Monitoring
 

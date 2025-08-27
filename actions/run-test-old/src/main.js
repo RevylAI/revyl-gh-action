@@ -244,29 +244,7 @@ Click the report link above to investigate the failure.
       eventSource.addEventListener('workflow_completed', event => {
         const data = JSON.parse(event.data)
         if (data.task_id === taskId) {
-          core.startGroup(`✅ Workflow Completed Successfully: ${workflowId}`)
-          
-          // Set workflow-specific outputs if available in the data
-          if (data.workflow_results) {
-            const results = data.workflow_results
-            if (results.total_tests !== undefined) {
-              core.setOutput('total_tests', results.total_tests.toString())
-            }
-            if (results.completed_tests !== undefined) {
-              core.setOutput('completed_tests', results.completed_tests.toString())
-            }
-            if (results.passed_tests !== undefined) {
-              core.setOutput('passed_tests', results.passed_tests.toString())
-            }
-            if (results.failed_tests !== undefined) {
-              core.setOutput('failed_tests', results.failed_tests.toString())
-            }
-          }
-
-          core.notice(`✅ Workflow completed successfully`)
-          core.info(`🆔 Task ID: ${taskId}`)
-          core.endGroup()
-          
+          console.log(`✅ Workflow completed: ${workflowId}`)
           finalStatus = 'completed'
           eventSource.close()
           clearTimeout(timeoutHandle)
@@ -277,32 +255,7 @@ Click the report link above to investigate the failure.
       eventSource.addEventListener('workflow_failed', event => {
         const data = JSON.parse(event.data)
         if (data.task_id === taskId) {
-          core.startGroup(`❌ Workflow Failed: ${workflowId}`)
-          
-          // Set workflow-specific outputs even for failed workflows if available
-          if (data.workflow_results) {
-            const results = data.workflow_results
-            if (results.total_tests !== undefined) {
-              core.setOutput('total_tests', results.total_tests.toString())
-            }
-            if (results.completed_tests !== undefined) {
-              core.setOutput('completed_tests', results.completed_tests.toString())
-            }
-            if (results.passed_tests !== undefined) {
-              core.setOutput('passed_tests', results.passed_tests.toString())
-            }
-            if (results.failed_tests !== undefined) {
-              core.setOutput('failed_tests', results.failed_tests.toString())
-            }
-          }
-
-          core.error(`❌ Workflow failed`, {
-            title: 'Workflow Execution Failed',
-            file: 'workflow-execution'
-          })
-          core.info(`🆔 Task ID: ${taskId}`)
-          core.endGroup()
-          
+          console.log(`❌ Workflow failed: ${workflowId}`)
           finalStatus = 'failed'
           eventSource.close()
           clearTimeout(timeoutHandle)
@@ -547,13 +500,32 @@ async function run() {
     // Get inputs and validate
     const testId = core.getInput('test-id', { required: false })
     const workflowId = core.getInput('workflow-id', { required: false })
+    const deviceUrl = core.getInput('revyl-device-url', { required: false })
     const retries = core.getInput('retries', { required: false }) || 1
+    const llm_model_name =
+      core.getInput('llm_model_name', { required: false }) || ''
     const buildVersionId =
       core.getInput('build-version-id', { required: false }) || null
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '3600',
       10
     )
+    let pollIntervalSeconds = parseInt(
+      core.getInput('poll-interval', { required: false }) || '15',
+      10
+    )
+
+    // Enforce sensible polling interval (>=5 seconds)
+    const MIN_POLL_INTERVAL = 5
+    if (
+      Number.isNaN(pollIntervalSeconds) ||
+      pollIntervalSeconds < MIN_POLL_INTERVAL
+    ) {
+      core.warning(
+        `poll-interval must be an integer greater than or equal to ${MIN_POLL_INTERVAL}. Using ${MIN_POLL_INTERVAL} instead.`
+      )
+      pollIntervalSeconds = MIN_POLL_INTERVAL
+    }
 
     // Validate that either testId or workflowId is provided
     if (!testId && !workflowId) {
@@ -571,7 +543,7 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const executionBaseUrl = 'https://device-staging.cognisim.io'
+    const executionBaseUrl = deviceUrl || 'https://device-staging.cognisim.io'
     const statusBaseUrl = 'https://backend-staging.cognisim.io'
 
     const initEndpoint = testId
@@ -596,11 +568,13 @@ async function run() {
       ? {
           test_id: testId,
           retries,
+          ...(llm_model_name && { llm_model_name }),
           ...(buildVersionId && { build_version_id: buildVersionId })
         }
       : {
           workflow_id: workflowId,
-          retries
+          retries,
+          ...(llm_model_name && { llm_model_name })
         }
 
     const res = await client.postJson(initUrl, body)

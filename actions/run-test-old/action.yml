@@ -10,8 +10,14 @@ inputs:
   test-id:
     description: 'The test id to run.'
     required: false
+  revyl-device-url:
+    description: 'The Revyl device URL server to use.'
+    required: false
   retries:
     description: 'The number of times to retry the test.'
+    required: false
+  llm_model_name:
+    description: 'The LLM model name to use.'
     required: false
   build-version-id:
     description:
@@ -21,6 +27,10 @@ inputs:
   timeout:
     description:
       'Timeout in seconds for the execution to complete. Default 3600.'
+    required: false
+  poll-interval:
+    description:
+      'Polling interval in seconds when checking execution status. Default 15.'
     required: false
 
 # Define your outputs here.
@@ -35,8 +45,6 @@ outputs:
     description: 'Execution platform (web, ios, android).'
   error_message:
     description: 'Error message if execution failed.'
-  report_link:
-    description: 'Shareable link to the detailed test execution report.'
   # Workflow-specific outputs
   total_tests:
     description: 'Total number of tests in the workflow.'
