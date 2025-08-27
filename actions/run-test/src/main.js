@@ -245,7 +245,7 @@ Click the report link above to investigate the failure.
         const data = JSON.parse(event.data)
         if (data.task_id === taskId) {
           core.startGroup(`✅ Workflow Completed Successfully: ${workflowId}`)
-          
+
           // Set workflow-specific outputs if available in the data
           if (data.workflow_results) {
             const results = data.workflow_results
@@ -253,7 +253,10 @@ Click the report link above to investigate the failure.
               core.setOutput('total_tests', results.total_tests.toString())
             }
             if (results.completed_tests !== undefined) {
-              core.setOutput('completed_tests', results.completed_tests.toString())
+              core.setOutput(
+                'completed_tests',
+                results.completed_tests.toString()
+              )
             }
             if (results.passed_tests !== undefined) {
               core.setOutput('passed_tests', results.passed_tests.toString())
@@ -266,7 +269,7 @@ Click the report link above to investigate the failure.
           core.notice(`✅ Workflow completed successfully`)
           core.info(`🆔 Task ID: ${taskId}`)
           core.endGroup()
-          
+
           finalStatus = 'completed'
           eventSource.close()
           clearTimeout(timeoutHandle)
@@ -278,7 +281,7 @@ Click the report link above to investigate the failure.
         const data = JSON.parse(event.data)
         if (data.task_id === taskId) {
           core.startGroup(`❌ Workflow Failed: ${workflowId}`)
-          
+
           // Set workflow-specific outputs even for failed workflows if available
           if (data.workflow_results) {
             const results = data.workflow_results
@@ -286,7 +289,10 @@ Click the report link above to investigate the failure.
               core.setOutput('total_tests', results.total_tests.toString())
             }
             if (results.completed_tests !== undefined) {
-              core.setOutput('completed_tests', results.completed_tests.toString())
+              core.setOutput(
+                'completed_tests',
+                results.completed_tests.toString()
+              )
             }
             if (results.passed_tests !== undefined) {
               core.setOutput('passed_tests', results.passed_tests.toString())
@@ -302,7 +308,7 @@ Click the report link above to investigate the failure.
           })
           core.info(`🆔 Task ID: ${taskId}`)
           core.endGroup()
-          
+
           finalStatus = 'failed'
           eventSource.close()
           clearTimeout(timeoutHandle)

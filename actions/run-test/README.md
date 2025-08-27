@@ -94,18 +94,18 @@ generation.
 
 ## Outputs
 
-| Output            | Description                                                       |
-| ----------------- | ----------------------------------------------------------------- |
-| `task_id`         | Unique task ID for the execution                                  |
-| `success`         | Whether the test/workflow completed successfully (`true`/`false`) |
-| `execution_time`  | Total execution time in HH:MM:SS format                           |
-| `platform`        | Platform the test ran on (web/ios/android)                        |
-| `error_message`   | Error message if execution failed                                 |
-| `report_link`     | Shareable link to the detailed test execution report             |
-| `total_steps`     | Total number of steps in the test (test executions only)         |
-| `completed_steps` | Number of steps completed in the test (test executions only)     |
-| `total_tests`     | Total number of tests in the workflow (workflow executions only) |
-| `completed_tests` | Number of tests completed in the workflow (workflow executions only) |
+| Output            | Description                                                            |
+| ----------------- | ---------------------------------------------------------------------- |
+| `task_id`         | Unique task ID for the execution                                       |
+| `success`         | Whether the test/workflow completed successfully (`true`/`false`)      |
+| `execution_time`  | Total execution time in HH:MM:SS format                                |
+| `platform`        | Platform the test ran on (web/ios/android)                             |
+| `error_message`   | Error message if execution failed                                      |
+| `report_link`     | Shareable link to the detailed test execution report                   |
+| `total_steps`     | Total number of steps in the test (test executions only)               |
+| `completed_steps` | Number of steps completed in the test (test executions only)           |
+| `total_tests`     | Total number of tests in the workflow (workflow executions only)       |
+| `completed_tests` | Number of tests completed in the workflow (workflow executions only)   |
 | `passed_tests`    | Number of tests that passed in the workflow (workflow executions only) |
 | `failed_tests`    | Number of tests that failed in the workflow (workflow executions only) |
 
