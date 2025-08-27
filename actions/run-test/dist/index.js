@@ -7777,6 +7777,9 @@ async function run() {
 
     core.startGroup(`🚀 Starting ${testId ? 'Test' : 'Workflow'} Execution`)
     core.info(`🎯 ${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
+    if (buildVersionId) {
+      core.info(`📦 Build Version ID: ${buildVersionId}`)
+    }
     core.info(`🌐 Execution URL: ${initUrl}`)
     core.info(
       `⏱️  Timeout: ${timeoutSeconds}s (${Math.round(timeoutSeconds / 60)} minutes)`
