@@ -19,6 +19,9 @@ inputs:
   llm_model_name:
     description: 'The LLM model name to use.'
     required: false
+  build-version-id:
+    description: 'Optional build version ID to use for this test execution. Overrides the build version attached to the test.'
+    required: false
   timeout:
     description:
       'Timeout in seconds for the execution to complete. Default 3600.'
