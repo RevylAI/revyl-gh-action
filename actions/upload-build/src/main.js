@@ -63,11 +63,16 @@ async function run() {
       if (process.env.GITHUB_REF_NAME) {
         autoMetadata.branch = process.env.GITHUB_REF_NAME
       }
-      if (process.env.GITHUB_EVENT_NAME === 'pull_request' && process.env.GITHUB_EVENT_PATH) {
+      if (
+        process.env.GITHUB_EVENT_NAME === 'pull_request' &&
+        process.env.GITHUB_EVENT_PATH
+      ) {
         try {
           // Try to extract PR number from event
           const fs = require('fs')
-          const eventData = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
+          const eventData = JSON.parse(
+            fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')
+          )
           if (eventData.number) {
             autoMetadata.pr_number = eventData.number
           }
@@ -76,7 +81,7 @@ async function run() {
           core.info('Could not extract PR number from GitHub event')
         }
       }
-      
+
       // Add CI system identification
       autoMetadata.ci_system = 'github-actions'
       autoMetadata.ci_build_number = process.env.GITHUB_RUN_NUMBER
@@ -85,7 +90,7 @@ async function run() {
 
     // Merge auto metadata with user metadata (user metadata takes precedence)
     const finalMetadata = { ...autoMetadata, ...parsedMetadata }
-    
+
     // Log what metadata is being added automatically
     if (Object.keys(autoMetadata).length > 0) {
       core.info('🤖 Auto-injected CI/CD metadata:')

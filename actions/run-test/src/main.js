@@ -115,10 +115,10 @@ async function monitorTaskViaSSE(
 
             // Add job summary with rich formatting
             core.summary
-              .addHeading('🎉 Test Execution Completed', 2)
+              .addHeading('Test Execution Completed 🎉 ', 2)
               .addRaw(
                 `
-**Test ID:** \`${data.test_name}\`
+**Test Name:** \`${data.test_name}\`
 **Status:** ✅ Success
 **Report:** [View Detailed Report](${reportLink})
 
@@ -169,7 +169,7 @@ The test has completed successfully! Click the report link above to view detaile
 
             // Add failure summary with debugging info
             core.summary
-              .addHeading('❌ Test Execution Failed', 2)
+              .addHeading('Test Execution Failed ❌', 2)
               .addRaw(
                 `
 **Test ID:** \`${data.test_name}\`
