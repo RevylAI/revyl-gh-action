@@ -50,6 +50,53 @@ async function run() {
       }
     }
 
+    // Automatically inject GitHub Actions CI/CD metadata
+    const autoMetadata = {}
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      // Only inject if we're running in GitHub Actions
+      if (process.env.GITHUB_REPOSITORY) {
+        autoMetadata.ci_run_url = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      }
+      if (process.env.GITHUB_SHA) {
+        autoMetadata.commit_sha = process.env.GITHUB_SHA
+      }
+      if (process.env.GITHUB_REF_NAME) {
+        autoMetadata.branch = process.env.GITHUB_REF_NAME
+      }
+      if (process.env.GITHUB_EVENT_NAME === 'pull_request' && process.env.GITHUB_EVENT_PATH) {
+        try {
+          // Try to extract PR number from event
+          const fs = require('fs')
+          const eventData = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
+          if (eventData.number) {
+            autoMetadata.pr_number = eventData.number
+          }
+        } catch (e) {
+          // If we can't read the event file, that's okay - just skip PR number
+          core.info('Could not extract PR number from GitHub event')
+        }
+      }
+      
+      // Add CI system identification
+      autoMetadata.ci_system = 'github-actions'
+      autoMetadata.ci_build_number = process.env.GITHUB_RUN_NUMBER
+      autoMetadata.ci_build_attempt = process.env.GITHUB_RUN_ATTEMPT
+    }
+
+    // Merge auto metadata with user metadata (user metadata takes precedence)
+    const finalMetadata = { ...autoMetadata, ...parsedMetadata }
+    
+    // Log what metadata is being added automatically
+    if (Object.keys(autoMetadata).length > 0) {
+      core.info('🤖 Auto-injected CI/CD metadata:')
+      Object.entries(autoMetadata).forEach(([key, value]) => {
+        // Only log if not overridden by user
+        if (!parsedMetadata.hasOwnProperty(key)) {
+          core.info(`   ${key}: ${value}`)
+        }
+      })
+    }
+
     // Parse Expo headers if provided
     let parsedExpoHeaders = {}
     if (expoHeaders) {
@@ -81,7 +128,7 @@ async function run() {
         version: version,
         from_url: expoUrl,
         headers: parsedExpoHeaders,
-        metadata: parsedMetadata
+        metadata: finalMetadata
       }
 
       core.info(`Making request to: ${backendUrl}${fromUrlEndpoint}`)
@@ -233,7 +280,7 @@ async function run() {
 
       // Add file_name to metadata so backend uses correct S3 key
       const completeMetadata = {
-        ...parsedMetadata,
+        ...finalMetadata,
         file_name: fileName // Ensure backend uses the correct filename
       }
 
