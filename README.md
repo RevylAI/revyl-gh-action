@@ -1,7 +1,7 @@
 # Revyl GitHub Actions
 
 <div align="center">
-  <img src="https://docs.revyl.ai/logo/revyl-logo-dark.svg" alt="Revyl Logo" width="300">
+  <img src="revyl-block-graphic.png" alt="Revyl Logo" width="400">
   <br><br>
   <p><strong>Professional CI/CD integration for mobile testing automation</strong></p>
 </div>
