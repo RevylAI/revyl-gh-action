@@ -25,10 +25,6 @@ inputs:
       'JSON string of headers to use when downloading from Expo URL (e.g.,
       {"Authorization": "Bearer token"}).'
     required: false
-  metadata:
-    description:
-      'JSON string of additional metadata to store with the build version.'
-    required: false
   package-name:
     description:
       'Package name/identifier for the build (will be auto-extracted if not
