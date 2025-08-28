@@ -320,9 +320,6 @@ async function run() {
     if (packageId) {
       core.setOutput('package-id', packageId)
     }
-    if (artifactUrl) {
-      core.setOutput('artifact-url', artifactUrl)
-    }
     core.setOutput('upload-time', uploadTime.toString())
 
     core.info(`✅ Build upload completed successfully in ${uploadTime}s`)

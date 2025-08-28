@@ -46,8 +46,6 @@ outputs:
     description: 'The version string of the uploaded build.'
   package-id:
     description: 'The extracted package ID from the build artifact.'
-  artifact-url:
-    description: 'The S3 URL where the artifact is stored.'
   upload-time:
     description: 'Time taken for the upload operation in seconds.'
   error-message:

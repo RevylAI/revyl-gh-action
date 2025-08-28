@@ -5,7 +5,7 @@ supports both direct file uploads and Expo URL ingestion.
 
 ## Features
 
-- Upload build artifacts (APK, IPA, ZIP files) directly from CI/CD
+- Upload build artifacts (APK, ZIP, .app files) directly from CI/CD
 - Download and upload builds from Expo URLs
 - Automatic package ID extraction for mobile apps
 - Support for custom metadata and headers
@@ -66,7 +66,6 @@ supports both direct file uploads and Expo URL ingestion.
 | `version-id`    | The ID of the created build version              |
 | `version`       | The version string of the uploaded build         |
 | `package-id`    | The extracted package ID from the build artifact |
-| `artifact-url`  | The S3 URL where the artifact is stored          |
 | `upload-time`   | Time taken for the upload operation in seconds   |
 | `error-message` | Error message if upload failed                   |
 
