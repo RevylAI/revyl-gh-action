@@ -8,11 +8,14 @@
 
 ---
 
-Powerful GitHub Actions for seamless CI/CD integration with the Revyl mobile testing platform. Build, upload, and test your mobile apps with real-time monitoring and comprehensive reporting.
+Powerful GitHub Actions for seamless CI/CD integration with the Revyl mobile
+testing platform. Build, upload, and test your mobile apps with real-time
+monitoring and comprehensive reporting.
 
 ## Quick Start
 
-1. **Get your API key** from the [Revyl settings page](https://auth.revyl.ai/account/api_keys)
+1. **Get your API key** from the
+   [Revyl settings page](https://auth.revyl.ai/account/api_keys)
 2. **Add it as a secret** named `REVYL_API_KEY` in your GitHub repository
 3. **Use in your workflows** - see examples below
 
@@ -20,9 +23,11 @@ Powerful GitHub Actions for seamless CI/CD integration with the Revyl mobile tes
 
 ### Run Test Action (`actions/run-test`)
 
-Execute Revyl tests or workflows with real-time SSE monitoring, automatic retries, and shareable report generation.
+Execute Revyl tests or workflows with real-time SSE monitoring, automatic
+retries, and shareable report generation.
 
 **Key Features:**
+
 - Real-time test execution monitoring via Server-Sent Events
 - Automatic build version integration for build-to-test pipelines
 - Rich GitHub Actions logging with progress tracking
@@ -31,9 +36,11 @@ Execute Revyl tests or workflows with real-time SSE monitoring, automatic retrie
 
 ### Upload Build Action (`actions/upload-build`)
 
-Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata injection and multi-source support.
+Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata
+injection and multi-source support.
 
 **Key Features:**
+
 - Direct file uploads (APK, ZIP, .app)
 - Expo URL ingestion with custom headers
 - **Automatic CI/CD metadata injection** - no manual configuration needed
@@ -42,7 +49,8 @@ Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata injectio
 
 ## Build-to-Test Pipeline
 
-The most powerful way to use Revyl Actions - automatically test your freshly built apps:
+The most powerful way to use Revyl Actions - automatically test your freshly
+built apps:
 
 ```yaml
 name: Build and Test Pipeline
@@ -121,9 +129,11 @@ jobs:
 
 ## Automatic CI/CD Metadata
 
-The upload-build action automatically injects CI/CD metadata into every build - no configuration required.
+The upload-build action automatically injects CI/CD metadata into every build -
+no configuration required.
 
 **Auto-injected metadata includes:**
+
 - `ci_run_url`: Direct link to the GitHub Actions run
 - `commit_sha`: Git commit SHA that triggered the build
 - `branch`: Branch name where the build was triggered
@@ -136,7 +146,8 @@ This provides excellent traceability without any manual setup.
 
 ## Action Outputs
 
-Both actions provide comprehensive outputs for integration with other workflow steps:
+Both actions provide comprehensive outputs for integration with other workflow
+steps:
 
 ### Upload Build Outputs
 
@@ -162,7 +173,8 @@ Both actions provide comprehensive outputs for integration with other workflow s
 For comprehensive documentation including framework-specific build guides:
 
 - **[Complete Documentation](https://docs.revyl.ai/ci-recipes/github-actions)**
-- **[Mobile Build Guides](https://docs.revyl.ai/platform/mobileguides)** - React Native, Expo, Flutter, etc.
+- **[Mobile Build Guides](https://docs.revyl.ai/platform/mobileguides)** - React
+  Native, Expo, Flutter, etc.
 - [Run Test Action README](./actions/run-test/README.md)
 - [Upload Build Action README](./actions/upload-build/README.md)
 
@@ -188,7 +200,8 @@ Works with any mobile framework that can produce APK/ZIP/.app files:
 - Cordova/PhoneGap
 - Ionic
 
-See our [mobile build guides](https://docs.revyl.ai/platform/mobileguides) for framework-specific setup instructions.
+See our [mobile build guides](https://docs.revyl.ai/platform/mobileguides) for
+framework-specific setup instructions.
 
 ## Why Choose Revyl Actions?
 
