@@ -1,84 +1,165 @@
 # Revyl GitHub Actions
 
-This repository contains GitHub Actions for integrating with the Revyl platform.
+Powerful GitHub Actions for seamless CI/CD integration with the Revyl mobile testing platform. Build, upload, and test your mobile apps with real-time monitoring and comprehensive reporting.
 
-## Available Actions
+## 🚀 Quick Start
 
-### 1. Run Test Action (`actions/run-test`)
+1. **Get your API key** from the [Revyl settings page](https://auth.revyl.ai/account/api_keys)
+2. **Add it as a secret** named `REVYL_API_KEY` in your GitHub repository
+3. **Use in your workflows** - see examples below!
 
-Run Revyl tests or workflows from your GitHub workflows.
+## 📦 Available Actions
 
-**Setup:**
+### 🧪 Run Test Action (`actions/run-test`)
 
-1. Create a Revyl API key on the settings page
-2. Add the following to your workflow file:
+Execute Revyl tests or workflows with real-time SSE monitoring, automatic retries, and shareable report generation.
+
+**✨ Key Features:**
+- Real-time test execution monitoring via Server-Sent Events
+- Automatic build version integration for build-to-test pipelines
+- Rich GitHub Actions logging with progress tracking
+- Shareable report links with authentication
+- Support for both individual tests and multi-test workflows
+
+### 📱 Upload Build Action (`actions/upload-build`)
+
+Upload mobile app builds (APK/IPA) with automatic CI/CD metadata injection and multi-source support.
+
+**✨ Key Features:**
+- Direct file uploads (APK, IPA, ZIP)
+- Expo URL ingestion with custom headers
+- **Automatic CI/CD metadata injection** - no manual configuration needed!
+- Package ID auto-extraction
+- S3 artifact storage with URLs
+
+## 🔄 Build-to-Test Pipeline
+
+The most powerful way to use Revyl Actions - automatically test your freshly built apps:
 
 ```yaml
-- uses: actions/checkout@v3
-  with:
-    fetch-depth: 0
+name: Build and Test Pipeline
 
-- name: Run tests using Revyl
-  uses: RevylAI/revyl-gh-action/actions/run-test@v1
-  env:
-    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
-  with:
-    test-id: <test-id>
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Your build steps here (React Native, Expo, Flutter, etc.)
+      # See: https://docs.revyl.ai/platform/mobileguides
+      
+      - name: Upload Build to Revyl
+        id: upload-build
+        uses: RevylAI/revyl-gh-action/actions/upload-build@main
+        with:
+          build-var-id: ${{ env.BUILD_VAR_ID }}
+          version: ${{ github.sha }}
+          file-path: path/to/your/app.apk
+        env:
+          REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+      
+      - name: Run Tests on New Build
+        uses: RevylAI/revyl-gh-action/actions/run-test@main
+        with:
+          test-id: ${{ env.TEST_ID }}
+          build-version-id: ${{ steps.upload-build.outputs.version-id }}
+        env:
+          REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
-### 2. Upload Build Action (`actions/upload-build`)
+## 📋 Standalone Usage
 
-Upload build artifacts to the Revyl build system. Supports both direct file
-uploads and Expo URL ingestion.
-
-**Features:**
-
-- Upload APK, IPA, ZIP files directly from CI/CD
-- Download and upload builds from Expo URLs
-- Automatic package ID extraction
-- Custom metadata support
-
-**Example Usage:**
+### Upload Build Only
 
 ```yaml
-# Upload from file
 - name: Upload Build
-  uses: RevylAI/revyl-gh-action/actions/upload-build@v1
-  env:
-    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+  uses: RevylAI/revyl-gh-action/actions/upload-build@main
   with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
     file-path: './dist/app.apk'
-    metadata: '{"build_number": "123"}'
-
-# Upload from Expo URL
-- name: Upload Expo Build
-  uses: RevylAI/revyl-gh-action/actions/upload-build@v1
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+# For Expo builds
+- name: Upload Expo Build
+  uses: RevylAI/revyl-gh-action/actions/upload-build@main
   with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
     expo-url: 'https://expo.dev/artifacts/eas/...'
     expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
-For detailed documentation, see the individual action README files:
+### Run Test Only
 
-- [Run Test Action README](./actions/run-test/README.md)
-- [Upload Build Action README](./actions/upload-build/README.md)
+```yaml
+- name: Run Revyl Test
+  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  with:
+    test-id: "your-test-id"
+    timeout: 1800  # 30 minutes
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
 
-## Getting Started
+## 🤖 Automatic CI/CD Metadata
 
-1. Get your Revyl API key from the Revyl settings page
-2. Add it as a secret named `REVYL_API_KEY` in your GitHub repository
-3. Use the actions in your workflows as shown in the examples above
+The upload-build action automatically injects CI/CD metadata into every build - no configuration required!
 
-## Development
+**Auto-injected metadata includes:**
+- `ci_run_url`: Direct link to the GitHub Actions run
+- `commit_sha`: Git commit SHA that triggered the build
+- `branch`: Branch name where the build was triggered
+- `pr_number`: Pull request number (for PR builds)
+- `ci_system`: `'github-actions'`
+- `ci_build_number`: GitHub run number
+- `ci_build_attempt`: GitHub run attempt number
 
-Each action is self-contained with its own dependencies and build process. To
-develop or modify an action:
+This provides excellent traceability without any manual setup!
+
+## 📊 Action Outputs
+
+Both actions provide comprehensive outputs for integration with other workflow steps:
+
+### Upload Build Outputs
+- `success`: Whether upload was successful
+- `version-id`: **ID of the created build version** (use this for build-to-test!)
+- `version`: Version string of the uploaded build
+- `package-id`: Extracted package ID from the build
+- `artifact-url`: S3 URL where artifact is stored
+- `upload-time`: Time taken for upload in seconds
+
+### Run Test Outputs
+- `success`: Whether test completed successfully
+- `task_id`: Unique task ID for the execution
+- `execution_time`: Total execution time
+- `platform`: Platform the test ran on
+- `report_link`: **Shareable link to detailed test report**
+- `total_steps`: Total number of test steps
+- `completed_steps`: Number of completed steps
+- `error_message`: Error message if execution failed
+
+## 📚 Documentation
+
+For comprehensive documentation including framework-specific build guides:
+
+- **📖 [Complete Documentation](https://docs.revyl.ai/ci-recipes/github-actions)**
+- **📱 [Mobile Build Guides](https://docs.revyl.ai/platform/mobileguides)** - React Native, Expo, Flutter, etc.
+- 🧪 [Run Test Action README](./actions/run-test/README.md)
+- 📦 [Upload Build Action README](./actions/upload-build/README.md)
+
+## 🛠️ Development
+
+Each action is self-contained with its own dependencies and build process:
 
 ```bash
 cd actions/[action-name]
@@ -86,3 +167,26 @@ npm install
 npm test
 npm run package
 ```
+
+## 🏗️ Framework Support
+
+Works with any mobile framework that can produce APK/IPA files:
+- ⚛️ React Native
+- 🌐 Expo
+- 🎯 Flutter
+- 📱 Native iOS/Android
+- 🔧 Cordova/PhoneGap
+- ⚡ Ionic
+
+See our [mobile build guides](https://docs.revyl.ai/platform/mobileguides) for framework-specific setup instructions.
+
+## 🎯 Why Choose Revyl Actions?
+
+✅ **Real-time monitoring** - Watch your tests execute live with SSE  
+✅ **Zero-config metadata** - Automatic CI/CD traceability  
+✅ **Build-to-test pipelines** - Test the exact build you just created  
+✅ **Rich reporting** - Shareable authenticated report links  
+✅ **Multi-framework support** - Works with any mobile build system  
+✅ **Enterprise ready** - Robust error handling and retry logic  
+
+Ready to supercharge your mobile CI/CD? Get started with the examples above! 🚀
