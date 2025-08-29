@@ -34,6 +34,18 @@ retries, and shareable report generation.
 - Shareable report links with authentication
 - Support for both individual tests and multi-test workflows
 
+**Input Parameters:**
+
+| Parameter          | Required | Description                                                      | Default |
+| ------------------ | -------- | ---------------------------------------------------------------- | ------- |
+| `test-id`          | No\*     | The ID of the test to run                                        | -       |
+| `workflow-id`      | No\*     | The ID of the workflow to run                                    | -       |
+| `build-version-id` | No       | ID of a specific build version to use (from upload-build output) | -       |
+| `retries`          | No       | Number of retries if test fails                                  | -       |
+| `timeout`          | No       | Timeout in seconds for the test execution                        | `3600`  |
+
+\* Either `test-id` or `workflow-id` must be provided
+
 ### Upload Build Action (`actions/upload-build`)
 
 Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata
@@ -44,8 +56,62 @@ injection and multi-source support.
 - Direct file uploads (APK, ZIP, .app)
 - Expo URL ingestion with custom headers
 - **Automatic CI/CD metadata injection** - no manual configuration needed
+- **Automatic TAR to ZIP conversion** for iOS builds
 - Package ID auto-extraction
 - Secure artifact storage
+
+**Input Parameters:**
+
+| Parameter      | Required | Description                                              | Example                               |
+| -------------- | -------- | -------------------------------------------------------- | ------------------------------------- |
+| `build-var-id` | Yes      | The build variable ID to upload to                       | `abc-123-def`                         |
+| `version`      | Yes      | Version string for this build (must be unique)           | `1.0.0` or `${{ github.sha }}`        |
+| `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                    | `./dist/app.apk`                      |
+| `expo-url`     | No\*     | Expo build URL to download from                          | `https://expo.dev/artifacts/...`      |
+| `expo-headers` | No       | JSON headers for Expo URL download                       | `'{"Authorization": "Bearer token"}'` |
+| `package-name` | No       | Package name/identifier (auto-extracted if not provided) | `com.example.app`                     |
+| `timeout`      | No       | Upload timeout in seconds                                | `1800` (30 min)                       |
+
+\* Either `file-path` or `expo-url` must be provided (but not both)
+
+### Environment Variables
+
+| Variable        | Required        | Description                                                                      |
+| --------------- | --------------- | -------------------------------------------------------------------------------- |
+| `REVYL_API_KEY` | Yes             | Your Revyl API key (get from [settings](https://auth.revyl.ai/account/api_keys)) |
+| `EXPO_TOKEN`    | For Expo builds | Your Expo access token (required when using `expo-url`)                          |
+
+## Setting Up for Expo Builds
+
+When using Expo/EAS builds, you'll need:
+
+1. **Add EXPO_TOKEN to GitHub Secrets:**
+
+   - Get your token from
+     [Expo Access Tokens](https://expo.dev/accounts/[your-username]/settings/access-tokens)
+   - Add as `EXPO_TOKEN` in your repository secrets
+
+2. **Use in your workflow:**
+
+```yaml
+- name: Build with EAS
+  run: eas build --platform ios --profile production --non-interactive --wait
+  env:
+    EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+- name: Upload to Revyl
+  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  with:
+    build-var-id: ${{ env.BUILD_VAR_ID }}
+    version: ${{ github.sha }}
+    expo-url: ${{ env.BUILD_URL }} # From EAS build output
+    expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
+Note: iOS `.tar.gz` files from EAS are automatically extracted and converted to
+`.zip` format.
 
 ## Build-to-Test Pipeline
 
@@ -103,13 +169,13 @@ jobs:
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
-# For Expo builds
+# For Expo builds (iOS .tar.gz automatically converted to .zip)
 - name: Upload Expo Build
   uses: RevylAI/revyl-gh-action/actions/upload-build@main
   with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
-    expo-url: 'https://expo.dev/artifacts/eas/...'
+    expo-url: 'https://expo.dev/artifacts/eas/...' # .tar.gz files are handled automatically
     expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -118,11 +184,31 @@ jobs:
 ### Run Test Only
 
 ```yaml
+# Basic test execution
 - name: Run Revyl Test
   uses: RevylAI/revyl-gh-action/actions/run-test@main
   with:
     test-id: 'your-test-id'
-    timeout: 1800 # 30 minutes
+    timeout: 3600 # 60 minutes
+    retries: 3
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+# Run a workflow instead of a single test
+- name: Run Revyl Workflow
+  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  with:
+    workflow-id: 'your-workflow-id'
+    timeout: 7200 # 2 hours for longer workflows
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+# With specific build version (from upload-build output)
+- name: Run Test with Specific Build
+  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  with:
+    test-id: 'your-test-id'
+    build-version-id: ${{ steps.upload.outputs.version-id }}
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
@@ -151,22 +237,68 @@ steps:
 
 ### Upload Build Outputs
 
-- `success`: Whether upload was successful
-- `version-id`: **ID of the created build version** (use this for build-to-test)
-- `version`: Version string of the uploaded build
-- `package-id`: Extracted package ID from the build
-- `upload-time`: Time taken for upload in seconds
+| Output          | Description                          | Example Usage                               |
+| --------------- | ------------------------------------ | ------------------------------------------- |
+| `success`       | Whether upload was successful        | `${{ steps.upload.outputs.success }}`       |
+| `version-id`    | **ID of the created build version**  | `${{ steps.upload.outputs.version-id }}`    |
+| `version`       | Version string of the uploaded build | `${{ steps.upload.outputs.version }}`       |
+| `package-id`    | Extracted package ID from the build  | `${{ steps.upload.outputs.package-id }}`    |
+| `upload-time`   | Time taken for upload in seconds     | `${{ steps.upload.outputs.upload-time }}`   |
+| `error-message` | Error message if upload failed       | `${{ steps.upload.outputs.error-message }}` |
 
 ### Run Test Outputs
 
-- `success`: Whether test completed successfully
-- `task_id`: Unique task ID for the execution
-- `execution_time`: Total execution time
-- `platform`: Platform the test ran on
-- `report_link`: **Shareable link to detailed test report**
-- `total_steps`: Total number of test steps
-- `completed_steps`: Number of completed steps
-- `error_message`: Error message if execution failed
+**Test Outputs:**
+
+| Output            | Description                         | Example Usage                               |
+| ----------------- | ----------------------------------- | ------------------------------------------- |
+| `success`         | Whether test completed successfully | `${{ steps.test.outputs.success }}`         |
+| `task_id`         | Unique task ID for the execution    | `${{ steps.test.outputs.task_id }}`         |
+| `execution_time`  | Total execution time in seconds     | `${{ steps.test.outputs.execution_time }}`  |
+| `platform`        | Platform the test ran on            | `${{ steps.test.outputs.platform }}`        |
+| `report_link`     | **Shareable link to test report**   | `${{ steps.test.outputs.report_link }}`     |
+| `total_steps`     | Total number of test steps          | `${{ steps.test.outputs.total_steps }}`     |
+| `completed_steps` | Number of completed steps           | `${{ steps.test.outputs.completed_steps }}` |
+| `error_message`   | Error message if execution failed   | `${{ steps.test.outputs.error_message }}`   |
+
+**Workflow-specific Outputs (when using `workflow-id`):**
+
+| Output            | Description                       | Example Usage                               |
+| ----------------- | --------------------------------- | ------------------------------------------- |
+| `total_tests`     | Total number of tests in workflow | `${{ steps.test.outputs.total_tests }}`     |
+| `completed_tests` | Number of tests completed         | `${{ steps.test.outputs.completed_tests }}` |
+| `passed_tests`    | Number of tests that passed       | `${{ steps.test.outputs.passed_tests }}`    |
+| `failed_tests`    | Number of tests that failed       | `${{ steps.test.outputs.failed_tests }}`    |
+
+### Using Outputs in Subsequent Steps
+
+```yaml
+- name: Upload Build
+  id: upload
+  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  # ... configuration ...
+
+- name: Use Upload Results
+  if: steps.upload.outputs.success == 'true'
+  run: |
+    echo "Build uploaded successfully!"
+    echo "Version ID: ${{ steps.upload.outputs.version-id }}"
+    echo "Package: ${{ steps.upload.outputs.package-id }}"
+
+- name: Run Test
+  id: test
+  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  with:
+    test-id: ${{ env.TEST_ID }}
+    build-version-id: ${{ steps.upload.outputs.version-id }}
+  # ... configuration ...
+
+- name: Share Test Results
+  if: always()
+  run: |
+    echo "Test Report: ${{ steps.test.outputs.report_link }}"
+    echo "Success: ${{ steps.test.outputs.success }}"
+```
 
 ## Documentation
 

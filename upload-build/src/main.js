@@ -28,7 +28,7 @@ async function run() {
     )
 
     // Hardcode the correct backend URL - users shouldn't need to know this
-    const backendUrl = 'https://backend-staging.cognisim.io'
+    const backendUrl = 'https://backend.cognisim.io'
 
     // Validate inputs
     if (!filePath && !expoUrl) {
