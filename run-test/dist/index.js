@@ -7627,7 +7627,7 @@ async function generateShareableReportLink(completedTestData, baseUrl) {
     }
 
     // Call the shareable report link API (use backend URL, not device URL)
-    const backendUrl = 'https://backend-staging.cognisim.io'
+    const backendUrl = 'https://backend.cognisim.io'
     const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
 
     console.log(
@@ -7763,8 +7763,8 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const executionBaseUrl = 'https://device-staging.cognisim.io'
-    const statusBaseUrl = 'https://backend-staging.cognisim.io'
+    const executionBaseUrl = 'https://device.cognisim.io'
+    const statusBaseUrl = 'https://backend.cognisim.io'
 
     const initEndpoint = testId
       ? '/api/execute_test_id_async'
