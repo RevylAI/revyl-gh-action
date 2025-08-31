@@ -1,0 +1,65 @@
+name: 'Run Revyl Workflow'
+description: 'Run a Revyl workflow by workflow id with real-time monitoring'
+author: 'Revyl'
+
+inputs:
+  workflow-id:
+    description: 'The workflow id to run.'
+    required: true
+  retries:
+    description: 'Number of retries for failed tests within the workflow.'
+    required: false
+    default: '1'
+  timeout:
+    description: 'Timeout in seconds for the workflow execution. Default 3600.'
+    required: false
+    default: '3600'
+  revyl-device-url:
+    description: 'Override device base URL (e.g., https://device-staging.cognisim.io)'
+    required: false
+  backend-url:
+    description: 'Override backend base URL (e.g., https://backend-staging.cognisim.io)'
+    required: false
+
+outputs:
+  success:
+    description: 'Whether the workflow succeeded.'
+    value: ${{ steps.run.outputs.success }}
+  task_id:
+    description: 'The task identifier returned by the async API.'
+    value: ${{ steps.run.outputs.task_id }}
+  total_tests:
+    description: 'Total number of tests in the workflow.'
+    value: ${{ steps.run.outputs.total_tests }}
+  completed_tests:
+    description: 'Number of tests completed in the workflow.'
+    value: ${{ steps.run.outputs.completed_tests }}
+  passed_tests:
+    description: 'Number of tests that passed in the workflow.'
+    value: ${{ steps.run.outputs.passed_tests }}
+  failed_tests:
+    description: 'Number of tests that failed in the workflow.'
+    value: ${{ steps.run.outputs.failed_tests }}
+  error_message:
+    description: 'Error message if execution failed.'
+    value: ${{ steps.run.outputs.error_message }}
+  report_link:
+    description: 'Shareable link to the workflow/test report when available.'
+    value: ${{ steps.run.outputs.report_link }}
+
+runs:
+  using: composite
+  steps:
+    - name: Execute workflow (delegates to core runner)
+      id: run
+      uses: ./run-test
+      with:
+        workflow-id: ${{ inputs.workflow-id }}
+        retries: ${{ inputs.retries }}
+        timeout: ${{ inputs.timeout }}
+        backend-url: ${{ inputs.backend-url }}
+        revyl-device-url: ${{ inputs.revyl-device-url }}
+      env:
+        REVYL_API_KEY: ${{ env.REVYL_API_KEY }}
+
+

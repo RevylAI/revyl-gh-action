@@ -440,8 +440,8 @@ async function generateShareableReportLink(completedTestData, baseUrl) {
       return null
     }
 
-    // Call the shareable report link API (use backend URL, not device URL)
-    const backendUrl = 'https://backend.cognisim.io'
+    // Call the shareable report link API using provided backend base URL
+    const backendUrl = baseUrl || 'https://backend.cognisim.io'
     const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
 
     console.log(
@@ -577,8 +577,15 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const executionBaseUrl = 'https://device.cognisim.io'
-    const statusBaseUrl = 'https://backend.cognisim.io'
+    const deviceBaseUrl =
+      core.getInput('revyl-device-url', { required: false }) ||
+      'https://device.cognisim.io'
+    const backendBaseUrl =
+      core.getInput('backend-url', { required: false }) ||
+      'https://backend.cognisim.io'
+
+    const executionBaseUrl = deviceBaseUrl
+    const statusBaseUrl = backendBaseUrl
 
     const initEndpoint = testId
       ? '/api/execute_test_id_async'

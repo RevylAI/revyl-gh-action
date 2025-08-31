@@ -46,6 +46,32 @@ retries, and shareable report generation.
 
 \* Either `test-id` or `workflow-id` must be provided
 
+### Run Workflow Action (`run-workflow`)
+
+Clean, dedicated entrypoint for executing a Revyl workflow by `workflow-id`. This is a thin wrapper around the core runner with workflow-focused inputs/outputs.
+
+```yaml
+# Same-repo usage
+- name: Run Revyl Workflow
+  uses: ./run-workflow
+  with:
+    workflow-id: 'your-workflow-id'
+    timeout: '3600'
+    backend-url: 'https://backend-staging.cognisim.io'
+    revyl-device-url: 'https://device-staging.cognisim.io'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+# Cross-repo usage
+- name: Run Revyl Workflow
+  uses: RevylAI/revyl-gh-action/run-workflow@v1
+  with:
+    workflow-id: 'your-workflow-id'
+    timeout: '3600'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
 ### Upload Build Action (`actions/upload-build`)
 
 Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata
