@@ -5,11 +5,13 @@
 
 ```bash
 # From repo root
-printf "REVYL_API_KEY=YOUR_API_KEY\n" > .secrets
+# Create secrets.env file with your API key
+echo "REVYL_API_KEY=YOUR_API_KEY" > secrets.env
 
+# Run with act using the secret file
 act workflow_dispatch -W .github/workflows/revyl-workflow-act.yml \
-  -s REVYL_API_KEY=@.secrets \
-  -i workflow_id=6e53b753-6031-4ce4-9ff1-88963c267329
+  --secret-file secrets.env \
+  --input workflow_id=6e53b753-6031-4ce4-9ff1-88963c267329
 ```
 
 #### Reference workflow (already added)

@@ -7186,544 +7186,8 @@ module.exports.implForWrapper = function (wrapper) {
 
 const core = __nccwpck_require__(2186)
 const httpm = __nccwpck_require__(6255)
-const EventSource = __nccwpck_require__(8883)
-const fetch = __nccwpck_require__(467)
+const { monitorTaskViaSSE } = __nccwpck_require__(6768)
 
-/**
- * Monitor task execution via Server-Sent Events (SSE)
- * @param {string} taskId - The task ID to monitor
- * @param {string} testId - The test ID (if monitoring a test)
- * @param {string} workflowId - The workflow ID (if monitoring a workflow)
- * @param {string} baseUrl - The base URL for the backend
- * @param {httpm.HttpClient} client - HTTP client for additional requests
- * @param {number} timeoutSeconds - Maximum time to wait
- * @returns {Promise<string|null>} Final status or null if timeout
- */
-async function monitorTaskViaSSE(
-  taskId,
-  testId,
-  workflowId,
-  baseUrl,
-  client,
-  timeoutSeconds
-) {
-  return new Promise((resolve, reject) => {
-    const startTime = Date.now()
-    let finalStatus = null
-    let reportLink = null
-
-    // Create SSE connection to the monitor stream
-    const sseUrl = `${baseUrl}/api/v1/tests/monitor/stream?include_queued=true`
-    const eventSource = new EventSource(sseUrl, {
-      headers: {
-        Authorization: `Bearer ${process.env['REVYL_API_KEY']}`
-      }
-    })
-
-    // Set up timeout
-    const timeoutHandle = setTimeout(() => {
-      eventSource.close()
-      if (finalStatus === null) {
-        resolve(null) // Timeout
-      }
-    }, timeoutSeconds * 1000)
-
-    // Handle SSE events
-    eventSource.onopen = () => {
-      core.info(
-        '🔗 SSE connection established - monitoring test execution in real-time'
-      )
-    }
-
-    eventSource.onerror = error => {
-      console.error('SSE connection error:', error)
-      eventSource.close()
-      clearTimeout(timeoutHandle)
-      reject(new Error(`SSE connection failed: ${error.message || error}`))
-    }
-
-    // Handle connection ready event
-    eventSource.addEventListener('connection_ready', event => {
-      const data = JSON.parse(event.data)
-      core.info(`🏢 Connected to organization: ${data.org_id}`)
-    })
-
-    // Handle initial state (may contain our task if already running)
-    eventSource.addEventListener('initial_state', event => {
-      const data = JSON.parse(event.data)
-      const runningTests = data.running_tests || []
-
-      // Check if our task is already in the initial state
-      const ourTask = runningTests.find(test => test.task_id === taskId)
-      if (ourTask) {
-        logProgress(ourTask, testId, workflowId)
-      }
-    })
-
-    // Handle test started events
-    eventSource.addEventListener('test_started', event => {
-      const data = JSON.parse(event.data)
-      if (data.test && data.test.task_id === taskId) {
-        core.startGroup(`🚀 Test Started: ${data.test.test_name || testId}`)
-        logProgress(data.test, testId, workflowId)
-        core.endGroup()
-      }
-    })
-
-    // Handle test updated events (progress)
-    eventSource.addEventListener('test_updated', event => {
-      const data = JSON.parse(event.data)
-      if (data.test && data.test.task_id === taskId) {
-        logProgress(data.test, testId, workflowId)
-      }
-    })
-
-    // Handle test completion with data
-    eventSource.addEventListener('test_completed_with_data', async event => {
-      const data = JSON.parse(event.data)
-      if (data.task_id === taskId) {
-        core.startGroup(`✅ Test Completed Successfully: ${data.test_name}`)
-
-        // Extract report link from completed test data
-        if (data.completed_test) {
-          core.info('🔗 Generating shareable report link...')
-          reportLink = await generateShareableReportLink(
-            data.completed_test,
-            baseUrl
-          )
-          if (reportLink) {
-            // Use GitHub's built-in notice feature for important information
-            core.notice(`📊 Test Report: ${reportLink}`, {
-              title: '✅ Test Completed Successfully',
-              file: 'test-execution'
-            })
-            core.setOutput('report_link', reportLink)
-
-            // Add job summary with rich formatting
-            core.summary
-              .addHeading('Test Execution Completed 🎉 ', 2)
-              .addRaw(
-                `
-**Test Name:** \`${data.test_name}\`
-**Status:** ✅ Success
-**Report:** [View Detailed Report](${reportLink})
-
-The test has completed successfully! Click the report link above to view detailed execution logs, screenshots, and performance metrics.
-              `
-              )
-              .write()
-          } else {
-            core.warning('⚠️  Could not generate shareable report link')
-          }
-
-          // Set additional outputs from completed test data
-          setOutputsFromCompletedTest(data.completed_test, testId, workflowId)
-        }
-
-        core.endGroup()
-        finalStatus = 'completed'
-        eventSource.close()
-        clearTimeout(timeoutHandle)
-        resolve(finalStatus)
-      }
-    })
-
-    // Handle test failure with data
-    eventSource.addEventListener('test_failed_with_data', async event => {
-      const data = JSON.parse(event.data)
-      if (data.task_id === taskId) {
-        core.startGroup(`❌ Test Failed: ${data.test_name}`)
-
-        // Extract report link from failed test data
-        if (data.failed_test) {
-          core.info('🔗 Generating shareable report link for failed test...')
-          reportLink = await generateShareableReportLink(
-            data.failed_test,
-            baseUrl
-          )
-          if (reportLink) {
-            // Use GitHub's error annotation for failures
-            core.error(`❌ Test Failed: ${data.test_name}`, {
-              title: 'Test Execution Failed',
-              file: 'test-execution'
-            })
-
-            core.notice(`📊 Failure Report: ${reportLink}`, {
-              title: '🔍 Debug Information Available'
-            })
-            core.setOutput('report_link', reportLink)
-
-            // Add failure summary with debugging info
-            core.summary
-              .addHeading('Test Execution Failed ❌', 2)
-              .addRaw(
-                `
-**Test ID:** \`${data.test_name}\`
-**Status:** ❌ Failed
-**Report:** [View Failure Analysis](${reportLink})
-
-The test execution failed. The detailed report contains:
-- 📸 Screenshots at failure point
-- 📋 Execution logs and error details  
-- 🔍 Step-by-step execution trace
-- 💡 Suggested debugging steps
-
-Click the report link above to investigate the failure.
-              `
-              )
-              .write()
-          } else {
-            core.warning('⚠️  Could not generate shareable report link')
-          }
-
-          // Set additional outputs from failed test data
-          setOutputsFromCompletedTest(data.failed_test, testId, workflowId)
-        }
-
-        core.endGroup()
-        finalStatus = 'failed'
-        eventSource.close()
-        clearTimeout(timeoutHandle)
-        resolve(finalStatus)
-      }
-    })
-
-    // Handle basic completion events (fallback if no data available)
-    eventSource.addEventListener('test_completed', event => {
-      const data = JSON.parse(event.data)
-      if (data.task_id === taskId) {
-        console.log(`✅ Test completed: ${data.test_name}`)
-        finalStatus = 'completed'
-        eventSource.close()
-        clearTimeout(timeoutHandle)
-        resolve(finalStatus)
-      }
-    })
-
-    // Handle basic failure events (fallback if no data available)
-    eventSource.addEventListener('test_failed', event => {
-      const data = JSON.parse(event.data)
-      if (data.task_id === taskId) {
-        console.log(`❌ Test failed: ${data.test_name}`)
-        finalStatus = 'failed'
-        eventSource.close()
-        clearTimeout(timeoutHandle)
-        resolve(finalStatus)
-      }
-    })
-
-    // Handle cancellation events
-    eventSource.addEventListener('test_cancelled', event => {
-      const data = JSON.parse(event.data)
-      if (data.task_id === taskId) {
-        console.log(`🚫 Test cancelled: ${data.test_name}`)
-        finalStatus = 'cancelled'
-        eventSource.close()
-        clearTimeout(timeoutHandle)
-        resolve(finalStatus)
-      }
-    })
-
-    // Handle workflow events if monitoring a workflow
-    if (workflowId) {
-      // Similar handlers for workflow events...
-      eventSource.addEventListener('workflow_completed', event => {
-        const data = JSON.parse(event.data)
-        if (data.task_id === taskId) {
-          core.startGroup(`✅ Workflow Completed Successfully: ${workflowId}`)
-
-          // Set workflow-specific outputs if available in the data
-          if (data.workflow_results) {
-            const results = data.workflow_results
-            if (results.total_tests !== undefined) {
-              core.setOutput('total_tests', results.total_tests.toString())
-            }
-            if (results.completed_tests !== undefined) {
-              core.setOutput(
-                'completed_tests',
-                results.completed_tests.toString()
-              )
-            }
-            if (results.passed_tests !== undefined) {
-              core.setOutput('passed_tests', results.passed_tests.toString())
-            }
-            if (results.failed_tests !== undefined) {
-              core.setOutput('failed_tests', results.failed_tests.toString())
-            }
-          }
-
-          core.notice(`✅ Workflow completed successfully`)
-          core.info(`🆔 Task ID: ${taskId}`)
-          core.endGroup()
-
-          finalStatus = 'completed'
-          eventSource.close()
-          clearTimeout(timeoutHandle)
-          resolve(finalStatus)
-        }
-      })
-
-      eventSource.addEventListener('workflow_failed', event => {
-        const data = JSON.parse(event.data)
-        if (data.task_id === taskId) {
-          core.startGroup(`❌ Workflow Failed: ${workflowId}`)
-
-          // Set workflow-specific outputs even for failed workflows if available
-          if (data.workflow_results) {
-            const results = data.workflow_results
-            if (results.total_tests !== undefined) {
-              core.setOutput('total_tests', results.total_tests.toString())
-            }
-            if (results.completed_tests !== undefined) {
-              core.setOutput(
-                'completed_tests',
-                results.completed_tests.toString()
-              )
-            }
-            if (results.passed_tests !== undefined) {
-              core.setOutput('passed_tests', results.passed_tests.toString())
-            }
-            if (results.failed_tests !== undefined) {
-              core.setOutput('failed_tests', results.failed_tests.toString())
-            }
-          }
-
-          core.error(`❌ Workflow failed`, {
-            title: 'Workflow Execution Failed',
-            file: 'workflow-execution'
-          })
-          core.info(`🆔 Task ID: ${taskId}`)
-          core.endGroup()
-
-          finalStatus = 'failed'
-          eventSource.close()
-          clearTimeout(timeoutHandle)
-          resolve(finalStatus)
-        }
-      })
-    }
-
-    // Handle heartbeat events (keep connection alive)
-    eventSource.addEventListener('heartbeat', event => {
-      const data = JSON.parse(event.data)
-      // Don't log every heartbeat, just use it to detect connection health
-      if (data.active_tests === 0 && Date.now() - startTime > 30000) {
-        // If no active tests for 30+ seconds, something might be wrong
-        console.log('No active tests detected in heartbeat')
-      }
-    })
-
-    // Handle error events
-    eventSource.addEventListener('error', event => {
-      const data = JSON.parse(event.data)
-      console.error('SSE error event:', data.error || data.message)
-      eventSource.close()
-      clearTimeout(timeoutHandle)
-      reject(new Error(`SSE error: ${data.error || data.message}`))
-    })
-  })
-}
-
-/**
- * Log progress information with clean, single-line updates
- */
-function logProgress(taskInfo, testId, workflowId) {
-  const currentStatus = taskInfo.status
-
-  // Status emoji mapping
-  const statusEmojis = {
-    queued: '⏳',
-    running: '🏃',
-    setup: '🔧',
-    executing: '⚡',
-    teardown: '🧹',
-    completed: '✅',
-    failed: '❌',
-    cancelled: '🚫'
-  }
-
-  const statusEmoji =
-    statusEmojis[currentStatus] || statusEmojis[taskInfo.phase] || '📊'
-
-  if (testId) {
-    // For test execution: clean single-line format
-    let message = `${statusEmoji} Status: ${currentStatus.toUpperCase()}`
-
-    if (taskInfo.phase && taskInfo.phase !== currentStatus) {
-      message += ` | Phase: ${taskInfo.phase}`
-    }
-
-    if (taskInfo.current_step) {
-      message += ` | Step: "${taskInfo.current_step}"`
-    }
-
-    if (taskInfo.current_step_index !== undefined && taskInfo.total_steps) {
-      const stepProgress = taskInfo.current_step_index + 1
-      message += ` | Progress: ${stepProgress}/${taskInfo.total_steps}`
-    }
-
-    if (taskInfo.progress !== undefined) {
-      const percentage = Math.round(taskInfo.progress * 100)
-      message += ` | ${percentage}%`
-    }
-
-    core.info(message)
-  } else if (workflowId) {
-    // For workflow execution: clean single-line format
-    let message = `${statusEmoji} Workflow: ${currentStatus.toUpperCase()}`
-
-    if (taskInfo.current_test) {
-      const testName = taskInfo.current_test_name || taskInfo.current_test
-      message += ` | Current: "${testName}"`
-    }
-
-    if (taskInfo.completed_tests !== undefined && taskInfo.total_tests) {
-      const percentage = Math.round(
-        (taskInfo.completed_tests / taskInfo.total_tests) * 100
-      )
-      message += ` | Tests: ${taskInfo.completed_tests}/${taskInfo.total_tests} (${percentage}%)`
-    }
-
-    core.info(message)
-  }
-}
-
-/**
- * Generate a shareable report link from completed test data
- */
-async function generateShareableReportLink(completedTestData, baseUrl) {
-  try {
-    // Extract test_id and history_id from completed test data
-    let testId = null
-    let historyId = null
-
-    // Try to get test history ID from enhanced task data
-    const enhancedTask = completedTestData.enhanced_task
-    if (enhancedTask && enhancedTask.test_history_id) {
-      testId = completedTestData.test_uid || enhancedTask.test_id
-      historyId = enhancedTask.test_history_id
-    } else {
-      // Fallback: try to extract from metadata
-      let metadata = completedTestData.metadata
-      if (typeof metadata === 'string') {
-        metadata = JSON.parse(metadata)
-      }
-
-      if (metadata && metadata.test_history_id) {
-        testId = completedTestData.test_uid || completedTestData.id
-        historyId = metadata.test_history_id
-      } else if (completedTestData.id && completedTestData.test_uid) {
-        // Another fallback: use the completed test ID directly
-        testId = completedTestData.test_uid
-        historyId = completedTestData.id
-      }
-    }
-
-    if (!testId || !historyId) {
-      console.warn(
-        'Could not extract test_id or history_id from completed test data'
-      )
-      return null
-    }
-
-    // Call the shareable report link API (use backend URL, not device URL)
-    const backendUrl = 'https://backend.cognisim.io'
-    const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
-
-    console.log(
-      `Generating shareable link for test_id: ${testId}, history_id: ${historyId}`
-    )
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env['REVYL_API_KEY']}`
-      },
-      body: JSON.stringify({
-        test_id: testId,
-        history_id: historyId,
-        origin: 'https://app.revyl.ai' // Use proper frontend origin
-      })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.warn(
-        `Failed to generate shareable link: ${response.status} ${response.statusText}`
-      )
-      console.warn(`Error response body: ${errorText}`)
-      return null
-    }
-
-    const result = await response.json()
-    return result.shareable_link || result.link || null
-  } catch (error) {
-    console.warn('Failed to generate shareable report link:', error.message)
-    return null
-  }
-}
-
-/**
- * Set GitHub Actions outputs from completed test data
- */
-function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
-  try {
-    const enhancedTask = completedTestData.enhanced_task || {}
-
-    // Set execution time
-    if (completedTestData.duration) {
-      const duration = formatDuration(completedTestData.duration)
-      core.setOutput('execution_time', duration)
-    }
-
-    // Set platform
-    if (enhancedTask.platform) {
-      core.setOutput('platform', enhancedTask.platform)
-    }
-
-    // Set step information for tests
-    if (testId) {
-      if (enhancedTask.total_steps) {
-        core.setOutput('total_steps', enhancedTask.total_steps.toString())
-      }
-      if (enhancedTask.current_step_index !== undefined) {
-        core.setOutput(
-          'completed_steps',
-          (enhancedTask.current_step_index + 1).toString()
-        )
-      }
-    }
-
-    // Set error information if available
-    if (completedTestData.status === 'failed' && enhancedTask.error_message) {
-      core.setOutput('error_message', enhancedTask.error_message)
-    }
-
-    // Set success flag
-    core.setOutput(
-      'success',
-      (completedTestData.status === 'completed').toString()
-    )
-  } catch (error) {
-    console.warn(
-      'Failed to set outputs from completed test data:',
-      error.message
-    )
-  }
-}
-
-/**
- * Format duration from seconds to HH:MM:SS
- */
-function formatDuration(seconds) {
-  if (!seconds || typeof seconds !== 'number') return null
-
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = Math.floor(seconds % 60)
-
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-}
 
 /**
  * The main function for the action.
@@ -7763,8 +7227,15 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const executionBaseUrl = 'https://device.cognisim.io'
-    const statusBaseUrl = 'https://backend.cognisim.io'
+    const deviceBaseUrl =
+      core.getInput('revyl-device-url', { required: false }) ||
+      'https://device.cognisim.io'
+    const backendBaseUrl =
+      core.getInput('backend-url', { required: false }) ||
+      'https://backend.cognisim.io'
+
+    const executionBaseUrl = deviceBaseUrl
+    const statusBaseUrl = backendBaseUrl
 
     const initEndpoint = testId
       ? '/api/execute_test_id_async'
@@ -7876,6 +7347,708 @@ async function run() {
 module.exports = {
   run
 }
+
+
+/***/ }),
+
+/***/ 6768:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const { monitorTest } = __nccwpck_require__(4748)
+const { monitorWorkflow } = __nccwpck_require__(9060)
+
+/**
+ * Monitor task execution via SSE (dispatcher)
+ * @param {string} taskId - The task ID to monitor
+ * @param {string|null} testId - Test ID if monitoring a test
+ * @param {string|null} workflowId - Workflow ID if monitoring a workflow
+ * @param {string} backendBaseUrl - Backend base URL for SSE and report API
+ * @param {object} client - HTTP client for additional requests
+ * @param {number} timeoutSeconds - Maximum time to wait
+ * @returns {Promise<string|null>} Final status or null if timeout
+ */
+async function monitorTaskViaSSE(taskId, testId, workflowId, backendBaseUrl, client, timeoutSeconds) {
+  if (testId) return monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds)
+  if (workflowId) return monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeoutSeconds)
+  return null
+}
+
+module.exports = { monitorTaskViaSSE, monitorTest, monitorWorkflow }
+
+
+
+
+/***/ }),
+
+/***/ 4748:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186)
+const EventSource = __nccwpck_require__(8883)
+const { logProgress } = __nccwpck_require__(9986)
+const { generateShareableReportLink } = __nccwpck_require__(7098)
+const { setOutputsFromCompletedTest } = __nccwpck_require__(4368)
+
+/**
+ * Monitor a single test task via SSE
+ * @param {string} taskId - The task ID to monitor
+ * @param {string} testId - The test ID
+ * @param {string} backendBaseUrl - Backend base URL for SSE and report API
+ * @param {object} client - HTTP client for additional requests
+ * @param {number} timeoutSeconds - Maximum time to wait
+ * @returns {Promise<string|null>} Final status or null if timeout
+ */
+async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds) {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now()
+    let finalStatus = null
+    let reportLink = null
+
+    const sseUrl = `${backendBaseUrl}/api/v1/tests/monitor/stream?include_queued=true`
+    const eventSource = new EventSource(sseUrl, {
+      headers: { Authorization: `Bearer ${process.env['REVYL_API_KEY']}` }
+    })
+
+    const timeoutHandle = setTimeout(() => {
+      eventSource.close()
+      if (finalStatus === null) resolve(null)
+    }, timeoutSeconds * 1000)
+
+    eventSource.onopen = () => {
+      core.info('🔗 SSE connection established - monitoring test execution in real-time')
+    }
+
+    eventSource.onerror = error => {
+      console.error('SSE connection error:', error)
+      eventSource.close()
+      clearTimeout(timeoutHandle)
+      reject(new Error(`SSE connection failed: ${error.message || error}`))
+    }
+
+    eventSource.addEventListener('connection_ready', event => {
+      const data = JSON.parse(event.data)
+      core.info(`🏢 Connected to organization: ${data.org_id}`)
+    })
+
+    eventSource.addEventListener('initial_state', event => {
+      const data = JSON.parse(event.data)
+      const runningTests = data.running_tests || []
+      const ourTask = runningTests.find(test => test.task_id === taskId)
+      if (ourTask) logProgress(ourTask, testId, null)
+    })
+
+    eventSource.addEventListener('test_started', event => {
+      const data = JSON.parse(event.data)
+      if (data.test && data.test.task_id === taskId) {
+        core.startGroup(`🚀 Test Started: ${data.test.test_name || testId}`)
+        logProgress(data.test, testId, null)
+        core.endGroup()
+      }
+    })
+
+    eventSource.addEventListener('test_updated', event => {
+      const data = JSON.parse(event.data)
+      if (data.test && data.test.task_id === taskId) logProgress(data.test, testId, null)
+    })
+
+    eventSource.addEventListener('test_completed_with_data', async event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        core.startGroup(`✅ Test Completed Successfully: ${data.test_name}`)
+        if (data.completed_test) {
+          core.info('🔗 Generating shareable report link...')
+          reportLink = await generateShareableReportLink(data.completed_test, backendBaseUrl)
+          if (reportLink) {
+            core.notice(`📊 Test Report: ${reportLink}`, { title: '✅ Test Completed Successfully', file: 'test-execution' })
+            core.setOutput('report_link', reportLink)
+            core.summary
+              .addHeading('Test Execution Completed 🎉 ', 2)
+              .addRaw(`
+**Test Name:** \`${data.test_name}\`
+**Status:** ✅ Success
+**Report:** [View Detailed Report](${reportLink})
+
+The test has completed successfully! Click the report link above to view detailed execution logs, screenshots, and performance metrics.
+              `)
+              .write()
+          } else {
+            core.warning('⚠️  Could not generate shareable report link')
+          }
+          setOutputsFromCompletedTest(data.completed_test, testId, null)
+        }
+        core.endGroup()
+        finalStatus = 'completed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('test_failed_with_data', async event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        core.startGroup(`❌ Test Failed: ${data.test_name}`)
+        if (data.failed_test) {
+          core.info('🔗 Generating shareable report link for failed test...')
+          reportLink = await generateShareableReportLink(data.failed_test, backendBaseUrl)
+          if (reportLink) {
+            core.error(`❌ Test Failed: ${data.test_name}`, { title: 'Test Execution Failed', file: 'test-execution' })
+            core.notice(`📊 Failure Report: ${reportLink}`, { title: '🔍 Debug Information Available' })
+            core.setOutput('report_link', reportLink)
+            core.summary
+              .addHeading('Test Execution Failed ❌', 2)
+              .addRaw(`
+**Test ID:** \`${data.test_name}\`
+**Status:** ❌ Failed
+**Report:** [View Failure Analysis](${reportLink})
+
+The test execution failed. The detailed report contains:
+- 📸 Screenshots at failure point
+- 📋 Execution logs and error details  
+- 🔍 Step-by-step execution trace
+- 💡 Suggested debugging steps
+
+Click the report link above to investigate the failure.
+              `)
+              .write()
+          } else {
+            core.warning('⚠️  Could not generate shareable report link')
+          }
+          setOutputsFromCompletedTest(data.failed_test, testId, null)
+        }
+        core.endGroup()
+        finalStatus = 'failed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('test_completed', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        console.log(`✅ Test completed: ${data.test_name}`)
+        finalStatus = 'completed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('test_failed', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        console.log(`❌ Test failed: ${data.test_name}`)
+        finalStatus = 'failed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('test_cancelled', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        console.log(`🚫 Test cancelled: ${data.test_name}`)
+        finalStatus = 'cancelled'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('heartbeat', event => {
+      const data = JSON.parse(event.data)
+      if (data.active_tests === 0 && Date.now() - startTime > 30000) {
+        console.log('No active tests detected in heartbeat')
+      }
+    })
+
+    eventSource.addEventListener('error', event => {
+      const data = JSON.parse(event.data)
+      console.error('SSE error event:', data.error || data.message)
+      eventSource.close()
+      clearTimeout(timeoutHandle)
+      reject(new Error(`SSE error: ${data.error || data.message}`))
+    })
+  })
+}
+
+module.exports = { monitorTest }
+
+
+
+
+/***/ }),
+
+/***/ 9060:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186)
+const EventSource = __nccwpck_require__(8883)
+
+/**
+ * Monitor a workflow task via SSE
+ * @param {string} taskId - The task ID to monitor
+ * @param {string} workflowId - The workflow ID
+ * @param {string} backendBaseUrl - Backend base URL for SSE
+ * @param {object} client - HTTP client for additional requests
+ * @param {number} timeoutSeconds - Maximum time to wait
+ * @returns {Promise<string|null>} Final status or null if timeout
+ */
+async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeoutSeconds) {
+  return new Promise((resolve, reject) => {
+    let finalStatus = null
+
+    const sseUrl = `${backendBaseUrl}/api/v1/workflows/monitor/stream`
+    const eventSource = new EventSource(sseUrl, {
+      headers: { Authorization: `Bearer ${process.env['REVYL_API_KEY']}` }
+    })
+
+    const timeoutHandle = setTimeout(() => {
+      eventSource.close()
+      if (finalStatus === null) resolve(null)
+    }, timeoutSeconds * 1000)
+
+    eventSource.onopen = () => {
+      core.info('🔗 SSE connection established - monitoring workflow execution in real-time')
+    }
+
+    eventSource.onerror = error => {
+      console.error('SSE connection error:', error)
+      eventSource.close()
+      clearTimeout(timeoutHandle)
+      reject(new Error(`SSE connection failed: ${error.message || error}`))
+    }
+
+    eventSource.addEventListener('connection_ready', event => {
+      const data = JSON.parse(event.data)
+      core.info(`🏢 Connected to organization: ${data.org_id}`)
+    })
+
+    eventSource.addEventListener('initial_state', event => {
+      const data = JSON.parse(event.data)
+      const runningWorkflows = data.running_workflows || []
+      const ourWorkflow = runningWorkflows.find(wf => wf.task.task_id === taskId)
+      
+      if (ourWorkflow) {
+        const task = ourWorkflow.task
+        const progress = ourWorkflow.progress || 0
+        
+        core.info(`📊 Workflow: ${ourWorkflow.workflow_name}`)
+        core.info(`📈 Progress: ${(progress * 100).toFixed(1)}%`)
+        core.info(`🔄 Status: ${task.status}`)
+        
+        if (task.total_tests) {
+          core.info(`🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`)
+        }
+        
+        // Set initial outputs
+        core.setOutput('status', task.status)
+        core.setOutput('total_tests', (task.total_tests || 0).toString())
+        core.setOutput('completed_tests', (task.completed_tests || 0).toString())
+      }
+    })
+
+    eventSource.addEventListener('workflow_started', event => {
+      const data = JSON.parse(event.data)
+      if (data.workflow && data.workflow.task && data.workflow.task.task_id === taskId) {
+        const wf = data.workflow
+        core.info(`🚀 Workflow started: ${wf.workflow_name}`)
+        core.setOutput('status', wf.task.status)
+      }
+    })
+
+    eventSource.addEventListener('workflow_updated', event => {
+      const data = JSON.parse(event.data)
+      if (data.workflow && data.workflow.task && data.workflow.task.task_id === taskId) {
+        const wf = data.workflow
+        const task = wf.task
+        const progress = wf.progress || 0
+        
+        core.info(`📊 Status: ${task.status} | Progress: ${(progress * 100).toFixed(1)}%`)
+        
+        if (task.total_tests) {
+          core.info(`🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`)
+        }
+        
+        // Update outputs
+        core.setOutput('status', task.status)
+        core.setOutput('completed_tests', (task.completed_tests || 0).toString())
+        core.setOutput('total_tests', (task.total_tests || 0).toString())
+      }
+    })
+
+    eventSource.addEventListener('workflow_completed', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        core.startGroup(`✅ Workflow Completed Successfully: ${data.workflow_name || workflowId}`)
+        
+        // Set final success outputs
+        core.setOutput('success', 'true')
+        core.setOutput('status', 'completed')
+        
+        // Fetch final results from the API
+        fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
+          .then(results => {
+            if (results) {
+              core.setOutput('total_tests', (results.total_tests || 0).toString())
+              core.setOutput('completed_tests', (results.completed_tests || 0).toString())
+              core.setOutput('passed_tests', (results.passed_tests || 0).toString())
+              core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+            }
+          })
+          .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+        
+        core.notice(`✅ Workflow completed successfully`)
+        core.info(`🆔 Task ID: ${taskId}`)
+        core.endGroup()
+        finalStatus = 'completed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('workflow_failed', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        core.startGroup(`❌ Workflow Failed: ${data.workflow_name || workflowId}`)
+        
+        // Set failure outputs
+        core.setOutput('success', 'false')
+        core.setOutput('status', 'failed')
+        
+        // Fetch final results from the API
+        fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
+          .then(results => {
+            if (results) {
+              core.setOutput('total_tests', (results.total_tests || 0).toString())
+              core.setOutput('completed_tests', (results.completed_tests || 0).toString())
+              core.setOutput('passed_tests', (results.passed_tests || 0).toString())
+              core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+              
+              // Check for failed tests
+              if (results.tests && Array.isArray(results.tests)) {
+                const failedTests = results.tests.filter(t => t.status === 'failed' || t.status === 'error')
+                if (failedTests.length > 0 && failedTests[0].error) {
+                  core.setOutput('error_message', failedTests[0].error)
+                }
+              }
+            }
+          })
+          .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+        
+        core.error(`❌ Workflow failed`, { title: 'Workflow Execution Failed', file: 'workflow-execution' })
+        core.info(`🆔 Task ID: ${taskId}`)
+        core.endGroup()
+        finalStatus = 'failed'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('workflow_cancelled', event => {
+      const data = JSON.parse(event.data)
+      if (data.task_id === taskId) {
+        core.warning(`⚠️ Workflow cancelled: ${data.workflow_name || workflowId}`)
+        core.setOutput('success', 'false')
+        core.setOutput('status', 'cancelled')
+        finalStatus = 'cancelled'
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        resolve(finalStatus)
+      }
+    })
+
+    eventSource.addEventListener('heartbeat', () => {
+      // Keep-alive signal, no action needed
+    })
+
+    eventSource.addEventListener('error', event => {
+      const data = JSON.parse(event.data)
+      console.error('SSE error event:', data.error || data.message)
+      eventSource.close()
+      clearTimeout(timeoutHandle)
+      reject(new Error(`SSE error: ${data.error || data.message}`))
+    })
+  })
+}
+
+/**
+ * Fetch final workflow results from API
+ * @param {string} taskId - The task ID
+ * @param {string} backendBaseUrl - Backend base URL
+ * @param {object} client - HTTP client
+ * @returns {Promise<object|null>} Final results or null
+ */
+async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
+  try {
+    const url = `${backendBaseUrl}/api/v1/workflows/tasks/workflow_task?task_id=${taskId}`
+    const res = await client.get(url)
+    
+    if (res.message.statusCode === 200) {
+      const body = await res.readBody()
+      const data = JSON.parse(body)
+      
+      // The response should be a WorkflowTasksBaseSchema
+      const task = data.data || data
+      
+      // Calculate passed/failed from tests array
+      let passed_tests = 0
+      let failed_tests = 0
+      
+      if (task.tests && Array.isArray(task.tests)) {
+        passed_tests = task.tests.filter(t => t.status === 'passed' || t.status === 'success').length
+        failed_tests = task.tests.filter(t => t.status === 'failed' || t.status === 'error').length
+      }
+      
+      return {
+        total_tests: task.total_tests || 0,
+        completed_tests: task.completed_tests || 0,
+        passed_tests,
+        failed_tests,
+        tests: task.tests || []
+      }
+    }
+  } catch (error) {
+    core.warning(`Failed to fetch workflow results: ${error.message}`)
+  }
+  return null
+}
+
+module.exports = { monitorWorkflow }
+
+/***/ }),
+
+/***/ 4368:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186)
+const { formatDuration } = __nccwpck_require__(6393)
+
+/**
+ * Set GitHub Actions outputs from completed test data
+ * @param {object} completedTestData - Completed test payload
+ * @param {string|null} testId - Test ID if a test
+ * @param {string|null} workflowId - Workflow ID if a workflow
+ */
+function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
+  try {
+    const enhancedTask = completedTestData.enhanced_task || {}
+
+    if (completedTestData.duration) {
+      const duration = formatDuration(completedTestData.duration)
+      core.setOutput('execution_time', duration)
+    }
+
+    if (enhancedTask.platform) {
+      core.setOutput('platform', enhancedTask.platform)
+    }
+
+    if (testId) {
+      if (enhancedTask.total_steps) {
+        core.setOutput('total_steps', enhancedTask.total_steps.toString())
+      }
+      if (enhancedTask.current_step_index !== undefined) {
+        core.setOutput('completed_steps', (enhancedTask.current_step_index + 1).toString())
+      }
+    }
+
+    if (completedTestData.status === 'failed' && enhancedTask.error_message) {
+      core.setOutput('error_message', enhancedTask.error_message)
+    }
+
+    core.setOutput('success', (completedTestData.status === 'completed').toString())
+  } catch (error) {
+    console.warn('Failed to set outputs from completed test data:', error.message)
+  }
+}
+
+module.exports = { setOutputsFromCompletedTest }
+
+
+
+
+/***/ }),
+
+/***/ 9986:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186)
+
+/**
+ * Log progress information with clean, single-line updates
+ * @param {object} taskInfo - Current task info payload
+ * @param {string|null} testId - Test ID if monitoring a test
+ * @param {string|null} workflowId - Workflow ID if monitoring a workflow
+ */
+function logProgress(taskInfo, testId, workflowId) {
+  const currentStatus = taskInfo.status
+
+  const statusEmojis = {
+    queued: '⏳',
+    running: '🏃',
+    setup: '🔧',
+    executing: '⚡',
+    teardown: '🧹',
+    completed: '✅',
+    failed: '❌',
+    cancelled: '🚫'
+  }
+
+  const statusEmoji = statusEmojis[currentStatus] || statusEmojis[taskInfo.phase] || '📊'
+
+  if (testId) {
+    let message = `${statusEmoji} Status: ${currentStatus.toUpperCase()}`
+
+    if (taskInfo.phase && taskInfo.phase !== currentStatus) {
+      message += ` | Phase: ${taskInfo.phase}`
+    }
+
+    if (taskInfo.current_step) {
+      message += ` | Step: "${taskInfo.current_step}"`
+    }
+
+    if (taskInfo.current_step_index !== undefined && taskInfo.total_steps) {
+      const stepProgress = taskInfo.current_step_index + 1
+      message += ` | Progress: ${stepProgress}/${taskInfo.total_steps}`
+    }
+
+    if (taskInfo.progress !== undefined) {
+      const percentage = Math.round(taskInfo.progress * 100)
+      message += ` | ${percentage}%`
+    }
+
+    core.info(message)
+  } else if (workflowId) {
+    let message = `${statusEmoji} Workflow: ${currentStatus.toUpperCase()}`
+
+    if (taskInfo.current_test) {
+      const testName = taskInfo.current_test_name || taskInfo.current_test
+      message += ` | Current: "${testName}"`
+    }
+
+    if (taskInfo.completed_tests !== undefined && taskInfo.total_tests) {
+      const percentage = Math.round((taskInfo.completed_tests / taskInfo.total_tests) * 100)
+      message += ` | Tests: ${taskInfo.completed_tests}/${taskInfo.total_tests} (${percentage}%)`
+    }
+
+    core.info(message)
+  }
+}
+
+module.exports = { logProgress }
+
+
+
+
+/***/ }),
+
+/***/ 7098:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const fetch = __nccwpck_require__(467)
+
+/**
+ * Generate a shareable report link from completed test data
+ * @param {object} completedTestData - Completed test payload
+ * @param {string} backendBaseUrl - Backend base URL to use
+ * @returns {Promise<string|null>} Shareable link or null
+ */
+async function generateShareableReportLink(completedTestData, backendBaseUrl) {
+  try {
+    let testId = null
+    let historyId = null
+
+    const enhancedTask = completedTestData.enhanced_task
+    if (enhancedTask && enhancedTask.test_history_id) {
+      testId = completedTestData.test_uid || enhancedTask.test_id
+      historyId = enhancedTask.test_history_id
+    } else {
+      let metadata = completedTestData.metadata
+      if (typeof metadata === 'string') {
+        metadata = JSON.parse(metadata)
+      }
+
+      if (metadata && metadata.test_history_id) {
+        testId = completedTestData.test_uid || completedTestData.id
+        historyId = metadata.test_history_id
+      } else if (completedTestData.id && completedTestData.test_uid) {
+        testId = completedTestData.test_uid
+        historyId = completedTestData.id
+      }
+    }
+
+    if (!testId || !historyId) {
+      console.warn('Could not extract test_id or history_id from completed test data')
+      return null
+    }
+
+    const backendUrl = backendBaseUrl || 'https://backend.cognisim.io'
+    const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env['REVYL_API_KEY']}`
+      },
+      body: JSON.stringify({
+        test_id: testId,
+        history_id: historyId,
+        origin: 'https://app.revyl.ai'
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.warn(
+        `Failed to generate shareable link: ${response.status} ${response.statusText}`
+      )
+      console.warn(`Error response body: ${errorText}`)
+      return null
+    }
+
+    const result = await response.json()
+    return result.shareable_link || result.link || null
+  } catch (error) {
+    console.warn('Failed to generate shareable report link:', error.message)
+    return null
+  }
+}
+
+module.exports = { generateShareableReportLink }
+
+
+
+
+/***/ }),
+
+/***/ 6393:
+/***/ ((module) => {
+
+/**
+ * Format duration from seconds to HH:MM:SS
+ * @param {number} seconds - Duration in seconds
+ * @returns {string|null} Formatted duration or null
+ */
+function formatDuration(seconds) {
+  if (!seconds || typeof seconds !== 'number') return null
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds
+    .toString()
+    .padStart(2, '0')}`
+}
+
+module.exports = { formatDuration }
+
+
 
 
 /***/ }),
