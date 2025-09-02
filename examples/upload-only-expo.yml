@@ -1,52 +1,122 @@
-# Simple Expo Build Upload (No Testing)
+# Simple Expo Build Upload to Revyl
 #
-# This is a minimal example that just builds and uploads to Revyl
-# Perfect for teams that want to store builds but run tests manually
+# This workflow demonstrates the simplest way to integrate Revyl into your Expo project:
+# 1. Build your app with Expo EAS
+# 2. Upload the build to Revyl for storage and future testing
+#
+# Perfect for teams that want to:
+# - Store builds automatically in Revyl
+# - Run tests manually later
+# - Get started with minimal setup
 
 name: Upload Expo Build to Revyl
 
+# When this workflow runs:
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [main] # Run when code is pushed to main branch
+  workflow_dispatch: # Allow manual triggering from GitHub UI
 
 jobs:
   upload-build:
     runs-on: ubuntu-latest
+
+    # Environment variables - these are used throughout the workflow
     env:
+      # 🔑 REQUIRED: Your Revyl API key (set in GitHub repository secrets)
+      # Get this from: https://auth.revyl.ai/account/api_keys
       REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+      # 🔑 REQUIRED: Your Expo access token (set in GitHub repository secrets)
+      # Get this from: https://expo.dev/accounts/[username]/settings/access-tokens
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      # 🏗️ REQUIRED: Replace with your Revyl build variable ID
+      # Get this from your Revyl dashboard when you create a build variable
       BUILD_VAR_ID: 'your-build-variable-id-here' # 📝 UPDATE THIS
+
+      # 🏷️ Version naming - using git commit SHA for uniqueness
+      # You can customize this format (e.g., v1.0.${{ github.run_number }})
       VERSION: ${{ github.sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      # Step 1: Get your source code from the repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # Step 2: Set up Node.js environment for your Expo project
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
-          cache: npm
+          node-version: '18.x' # Use Node.js 18 (recommended for Expo)
+          cache: npm # Cache npm dependencies to speed up future runs
 
-      - name: Setup Expo
+      # Step 3: Set up Expo CLI and EAS CLI for building
+      - name: 🚀 Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          eas-version: latest # Always use the latest EAS CLI
+          token: ${{ secrets.EXPO_TOKEN }} # Authenticate with your Expo account
 
-      - name: Install Dependencies
-        run: npm ci
+      # Step 4: Install your project's dependencies
+      - name: 📦 Install Dependencies
+        run: npm ci # Use 'npm ci' for faster, reliable installs in CI
 
-      - name: Build with EAS
+      # Step 5: Build your app with EAS (this is where the magic happens!)
+      - name: 🏗️ Build iOS App with EAS
         run: |
+          echo "🍎 Starting iOS build with EAS..."
+
+          # Build with EAS and capture the JSON response using these flags
+          # --platform ios: Build for iOS
+                      # --profile preview: Use the 'preview' build profile (change if you use different profile, but ENSURE this is a SIMULATOR build profile)
+            # See ExpoiOS.png in this folder for how to configure your EAS profile for simulator builds
+          # --non-interactive: Don't prompt for user input
+          # --wait: Wait for the build to complete before continuing
+          # --json: Return response in JSON format for easier parsing
           BUILD_JSON=$(eas build --platform ios --profile preview --non-interactive --wait --json)
+
+          # Extract the download URL from the EAS response
+          # This URL points to the .tar.gz file containing your iOS .app
           BUILD_URL=$(echo "$BUILD_JSON" | jq -r '.[0].artifacts.buildUrl')
+
+          echo "✅ Build completed! Download URL: $BUILD_URL"
+
+          # Make the URL available to subsequent steps
           echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
 
-      - name: Upload to Revyl
+      # Step 6: Upload your build to Revyl (the main event!)
+      - name: ⬆️ Upload Build to Revyl
         uses: RevylAI/revyl-gh-action/actions/upload-build@main
         with:
+          # Which Revyl build variable to upload to
           build-var-id: ${{ env.BUILD_VAR_ID }}
+
+          # Version identifier for this build (must be unique)
           version: ${{ env.VERSION }}
+
+          # URL to download the build from (EAS provides this)
           expo-url: ${{ env.BUILD_URL }}
+
+          # Headers needed to download from EAS (includes your auth token)
           expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
+
+        # 🎯 What this step does behind the scenes:
+        # ✅ Downloads the .tar.gz file from Expo
+        # ✅ Extracts the .app file from the archive
+        # ✅ Converts it to .zip format (required by Revyl)
+        # ✅ Extracts the app's bundle identifier (package ID)
+        # ✅ Uploads to Revyl with automatic CI/CD metadata like:
+        #    - commit_sha: ${{ github.sha }}
+        #    - branch: ${{ github.ref_name }}
+        #    - ci_run_url: Link to this GitHub Actions run
+        #    - ci_system: "github-actions"
+        # ✅ Returns a version-id that you can use for testing later
+
+      # 🎊 That's it! Your build is now stored in Revyl and ready for testing.
+      #
+      # Next steps you might want to add:
+      # - Add a step to run tests using the uploaded build
+      # - Post a comment to PRs with the build information
+      # - Send notifications to Slack/Teams
+      # - Deploy to app stores if tests pass

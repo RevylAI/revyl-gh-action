@@ -3,7 +3,7 @@
 <div align="center">
   <img src="revyl-block-graphic.png" alt="Revyl Logo" width="400">
   <br><br>
-  <p><strong>Professional CI/CD integration for mobile testing automation</strong></p>
+  <p><strong>Revyl's CI/CD integration for mobile testing automation</strong></p>
 </div>
 
 ---
@@ -147,20 +147,14 @@ When using Expo/EAS builds, you'll need:
 Note: iOS `.tar.gz` files from EAS are automatically extracted and converted to
 `.zip` format.
 
-## 🚀 Complete Examples
+## 🚀 Complete Example
 
-**Ready-to-use workflows for your mobile framework:**
+**Ready-to-use workflow for your Expo project:**
 
-- **[📱 Expo iOS Pipeline](./examples/expo-ios-build.yml)** - Complete EAS build
-  → upload → test workflow
-- **[🤖 React Native Android](./examples/react-native-android.yml)** - Gradle
-  build → upload → test workflow
-- **[🚀 Multi-Platform Matrix](./examples/multi-platform-matrix.yml)** - Build
-  iOS + Android in parallel
-- **[⬆️ Upload Only](./examples/upload-only-expo.yml)** - Simple build upload
-  without testing
+- **[📱 Expo Build Upload](./examples/upload-only-expo.yml)** - Simple EAS build
+  → upload to Revyl
 
-**[📚 View all examples with setup instructions →](./examples/README.md)**
+**[📚 View example with detailed setup instructions →](./examples/README.md)**
 
 ## Build-to-Test Pipeline
 
