@@ -54,10 +54,7 @@ jobs:
 | `task_id`         | Task id returned by the async execution API   |
 | `total_tests`     | Total number of tests in the workflow         |
 | `completed_tests` | Number of tests completed within the workflow |
-| `passed_tests`    | Number of tests that passed                   |
-| `failed_tests`    | Number of tests that failed                   |
-| `error_message`   | Error message if execution failed             |
-| `report_link`     | Shareable report link when available          |
+
 
 ## Environment Variables
 

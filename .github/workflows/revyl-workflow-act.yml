@@ -7,6 +7,14 @@ on:
         description: 'Revyl workflow id'
         required: true
         default: '6e53b753-6031-4ce4-9ff1-88963c267329'
+      device_url:
+        description: 'Override device base URL (e.g., https://device-staging.cognisim.io)'
+        required: false
+        default: ''
+      backend_url:
+        description: 'Override backend base URL (e.g., https://backend-staging.cognisim.io)'
+        required: false
+        default: ''
 
 jobs:
   run:
@@ -34,10 +42,14 @@ jobs:
         with:
           workflow-id: ${{ inputs.workflow_id }}
           timeout: '3600'
+          revyl-device-url: ${{ inputs.device_url }}
+          backend-url: ${{ inputs.backend_url }}
 
       - name: Output results
         run: |
           echo "Task ID: ${{ steps.revyl.outputs.task_id }}"
           echo "Success: ${{ steps.revyl.outputs.success }}"
-          echo "Totals: ${{ steps.revyl.outputs.completed_tests }}/${{ steps.revyl.outputs.total_tests }}"
+          echo "Status: ${{ steps.revyl.outputs.status }}"
+          echo "Total Tests: ${{ steps.revyl.outputs.total_tests }}"
+          echo "Completed: ${{ steps.revyl.outputs.completed_tests }}"
 
