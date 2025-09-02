@@ -31,8 +31,11 @@ Add to your repository secrets (`Settings` → `Secrets and variables` →
 In the workflow file, update:
 
 ```yaml
-BUILD_VAR_ID: 'your-build-variable-id-here' # Get from Revyl dashboard
+BUILD_VAR_ID: 'your-build-variable-id-here' # Get from build dashboard
 ```
+
+**Getting your Build ID** To get your build ID, create a new build, then copy
+the id, as shown in the screenshot below. ![Build ID Screenshot](./BuildID.png)
 
 ### 3. EAS Build Profile
 
@@ -40,20 +43,6 @@ BUILD_VAR_ID: 'your-build-variable-id-here' # Get from Revyl dashboard
 builds**.
 
 ![EAS Simulator Configuration](./ExpoiOS.png)
-
-Make sure your `eas.json` profile has:
-
-```json
-{
-  "build": {
-    "preview": {
-      "ios": {
-        "simulator": true
-      }
-    }
-  }
-}
-```
 
 ## Troubleshooting
 
