@@ -1,0 +1,145 @@
+# Multi-Platform Build Matrix
+#
+# This workflow demonstrates how to build and test multiple platforms
+# in parallel using GitHub Actions matrix strategy
+#
+# Perfect for teams that want to build iOS and Android simultaneously
+
+name: Multi-Platform Build and Test Matrix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ios, android]
+        include:
+          - platform: ios
+            build_profile: preview
+            build_var_id: 'your-ios-build-variable-id' # 📝 UPDATE THIS
+            test_id: 'your-ios-test-id' # 📝 UPDATE THIS
+          - platform: android
+            build_profile: preview
+            build_var_id: 'your-android-build-variable-id' # 📝 UPDATE THIS
+            test_id: 'your-android-test-id' # 📝 UPDATE THIS
+
+    env:
+      REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      VERSION:
+        ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}-{2}',
+        github.event.number, github.run_number, github.run_attempt) ||
+        format('{0}-{1}-{2}', github.ref_name, github.run_number,
+        github.run_attempt) }}
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Checkout Revyl Actions
+        uses: actions/checkout@v4
+        with:
+          repository: RevylAI/revyl-gh-action
+          path: revyl-actions
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: npm
+
+      - name: 🚀 Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🏗️ Build ${{ matrix.platform }} with EAS
+        id: eas-build
+        run: |
+          echo "🏗️ Building ${{ matrix.platform }} with EAS..."
+
+          BUILD_JSON=$(eas build --platform ${{ matrix.platform }} --profile ${{ matrix.build_profile }} --non-interactive --wait --json)
+          BUILD_URL=$(echo "$BUILD_JSON" | jq -r '.[0].artifacts.buildUrl')
+
+          if [ "$BUILD_URL" = "null" ] || [ -z "$BUILD_URL" ]; then
+            echo "❌ Failed to get build URL for ${{ matrix.platform }}"
+            exit 1
+          fi
+
+          echo "✅ ${{ matrix.platform }} build completed!"
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+
+      - name: ⬆️ Upload ${{ matrix.platform }} Build to Revyl
+        id: upload-build
+        uses: ./revyl-actions/actions/upload-build
+        with:
+          build-var-id: ${{ matrix.build_var_id }}
+          version: ${{ env.VERSION }}-${{ matrix.platform }}
+          expo-url: ${{ env.BUILD_URL }}
+          expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
+
+      - name: 🧪 Run ${{ matrix.platform }} Tests
+        id: run-tests
+        if: steps.upload-build.outputs.success == 'true'
+        uses: ./revyl-actions/actions/run-test
+        with:
+          test-id: ${{ matrix.test_id }}
+          build-version-id: ${{ steps.upload-build.outputs.version-id }}
+          timeout: 3600
+
+      - name: 📊 Upload Results Summary
+        if: always()
+        run: |
+          echo "## 📊 ${{ matrix.platform }} Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.upload-build.outputs.success }}" = "true" ]; then
+            echo "✅ **Build Upload:** Success" >> $GITHUB_STEP_SUMMARY
+            echo "🆔 **Version ID:** ${{ steps.upload-build.outputs.version-id }}" >> $GITHUB_STEP_SUMMARY
+            echo "📱 **Package ID:** ${{ steps.upload-build.outputs.package-id }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Build Upload:** Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.run-tests.conclusion }}" != "skipped" ]; then
+            if [ "${{ steps.run-tests.outputs.success }}" = "true" ]; then
+              echo "✅ **Tests:** Passed" >> $GITHUB_STEP_SUMMARY
+              echo "📊 **Report:** [View Results](${{ steps.run-tests.outputs.report_link }})" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **Tests:** Failed" >> $GITHUB_STEP_SUMMARY
+              if [ -n "${{ steps.run-tests.outputs.report_link }}" ]; then
+                echo "📊 **Report:** [View Results](${{ steps.run-tests.outputs.report_link }})" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          fi
+
+  # Collect results from all matrix jobs
+  results:
+    needs: build-matrix
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 📋 Collect Results
+        run: |
+          echo "## 🎯 Multi-Platform Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All platform builds have completed. Check individual job results above." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Review test reports for any failures" >> $GITHUB_STEP_SUMMARY
+          echo "- Check Revyl dashboard for detailed results" >> $GITHUB_STEP_SUMMARY
+          echo "- Both platforms are now available for manual testing" >> $GITHUB_STEP_SUMMARY

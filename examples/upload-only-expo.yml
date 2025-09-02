@@ -1,0 +1,52 @@
+# Simple Expo Build Upload (No Testing)
+#
+# This is a minimal example that just builds and uploads to Revyl
+# Perfect for teams that want to store builds but run tests manually
+
+name: Upload Expo Build to Revyl
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  upload-build:
+    runs-on: ubuntu-latest
+    env:
+      REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      BUILD_VAR_ID: 'your-build-variable-id-here' # 📝 UPDATE THIS
+      VERSION: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: npm
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build with EAS
+        run: |
+          BUILD_JSON=$(eas build --platform ios --profile preview --non-interactive --wait --json)
+          BUILD_URL=$(echo "$BUILD_JSON" | jq -r '.[0].artifacts.buildUrl')
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+
+      - name: Upload to Revyl
+        uses: RevylAI/revyl-gh-action/actions/upload-build@main
+        with:
+          build-var-id: ${{ env.BUILD_VAR_ID }}
+          version: ${{ env.VERSION }}
+          expo-url: ${{ env.BUILD_URL }}
+          expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'

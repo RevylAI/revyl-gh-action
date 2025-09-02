@@ -17,7 +17,13 @@ monitoring and comprehensive reporting.
 1. **Get your API key** from the
    [Revyl settings page](https://auth.revyl.ai/account/api_keys)
 2. **Add it as a secret** named `REVYL_API_KEY` in your GitHub repository
-3. **Use in your workflows** - see examples below
+3. **Copy a workflow** from our [examples folder](./examples/) that matches your
+   framework
+4. **Update the configuration** (build variable ID, test ID, file paths)
+5. **Push and watch it work!** 🚀
+
+**🎯 New to Revyl Actions?** Start with our
+[complete examples](./examples/README.md) - they include everything you need.
 
 ## Available Actions
 
@@ -48,7 +54,9 @@ retries, and shareable report generation.
 
 ### Run Workflow Action (`run-workflow`)
 
-Clean, dedicated entrypoint for executing a Revyl workflow by `workflow-id`. This is a thin wrapper around the core runner with workflow-focused inputs/outputs.
+Clean, dedicated entrypoint for executing a Revyl workflow by `workflow-id`.
+This is a thin wrapper around the core runner with workflow-focused
+inputs/outputs.
 
 ```yaml
 # Same-repo usage
@@ -139,6 +147,21 @@ When using Expo/EAS builds, you'll need:
 Note: iOS `.tar.gz` files from EAS are automatically extracted and converted to
 `.zip` format.
 
+## 🚀 Complete Examples
+
+**Ready-to-use workflows for your mobile framework:**
+
+- **[📱 Expo iOS Pipeline](./examples/expo-ios-build.yml)** - Complete EAS build
+  → upload → test workflow
+- **[🤖 React Native Android](./examples/react-native-android.yml)** - Gradle
+  build → upload → test workflow
+- **[🚀 Multi-Platform Matrix](./examples/multi-platform-matrix.yml)** - Build
+  iOS + Android in parallel
+- **[⬆️ Upload Only](./examples/upload-only-expo.yml)** - Simple build upload
+  without testing
+
+**[📚 View all examples with setup instructions →](./examples/README.md)**
+
 ## Build-to-Test Pipeline
 
 The most powerful way to use Revyl Actions - automatically test your freshly
@@ -160,7 +183,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Your build steps here (React Native, Expo, Flutter, etc.)
-      # See: https://docs.revyl.ai/platform/mobileguides
+      # See complete examples: ./examples/
 
       - name: Upload Build to Revyl
         id: upload-build
@@ -198,7 +221,7 @@ jobs:
 # For Expo builds (iOS .tar.gz automatically converted to .zip)
 - name: Upload Expo Build
   uses: RevylAI/revyl-gh-action/actions/upload-build@main
-  with:
+    with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
     expo-url: 'https://expo.dev/artifacts/eas/...' # .tar.gz files are handled automatically
