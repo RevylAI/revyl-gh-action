@@ -179,45 +179,96 @@ function validateArgs(args) {
   }
 }
 
-function getVersionFromAppJson() {
+async function getVersionFromAppJson() {
   try {
-    // Look for app.json in current directory
+    // Try app.json first
     const appJsonPath = path.join(process.cwd(), 'app.json')
-    if (!fs.existsSync(appJsonPath)) {
-      return null
+    if (fs.existsSync(appJsonPath)) {
+      const appJsonContent = fs.readFileSync(appJsonPath, 'utf8')
+      const appJson = JSON.parse(appJsonContent)
+      const version = appJson?.expo?.version
+      if (version) {
+        log(`Found version in app.json: ${version}`)
+        return version
+      }
     }
 
-    const appJsonContent = fs.readFileSync(appJsonPath, 'utf8')
-    const appJson = JSON.parse(appJsonContent)
+    // Try app.config.js if app.json not found or no version
+    const appConfigJsPath = path.join(process.cwd(), 'app.config.js')
+    if (fs.existsSync(appConfigJsPath)) {
+      let appConfig
 
-    // Extract version from expo.version
-    const version = appJson?.expo?.version
-    if (version) {
-      log(`Found version in app.json: ${version}`)
-      return version
+      try {
+        // Try CommonJS require first
+        const absolutePath = path.resolve(appConfigJsPath)
+        delete require.cache[absolutePath]
+        appConfig = require(absolutePath)
+      } catch (requireError) {
+        // If require fails, the file might be ESM - skip for now
+        // (ESM dynamic import would require more complex async handling)
+        log(
+          `Could not load app.config.js with require: ${requireError.message}`,
+          'warning'
+        )
+        return null
+      }
+
+      // Handle both function and object exports
+      const config = typeof appConfig === 'function' ? appConfig({}) : appConfig
+      const version = config?.expo?.version
+      if (version) {
+        log(`Found version in app.config.js: ${version}`)
+        return version
+      }
     }
 
     return null
   } catch (e) {
-    log(`Could not read version from app.json: ${e.message}`, 'warning')
+    log(`Could not read version from app config: ${e.message}`, 'warning')
     return null
   }
 }
 
-function getPackageIdFromAppJson(platform) {
+async function getPackageIdFromAppJson(platform) {
   try {
+    // Try app.json first
     const appJsonPath = path.join(process.cwd(), 'app.json')
-    if (!fs.existsSync(appJsonPath)) {
-      return null
+    if (fs.existsSync(appJsonPath)) {
+      const appJsonContent = fs.readFileSync(appJsonPath, 'utf8')
+      const appJson = JSON.parse(appJsonContent)
+
+      if (platform === 'ios') {
+        const packageId = appJson?.expo?.ios?.bundleIdentifier
+        if (packageId) return packageId
+      } else if (platform === 'android') {
+        const packageId = appJson?.expo?.android?.package
+        if (packageId) return packageId
+      }
     }
 
-    const appJsonContent = fs.readFileSync(appJsonPath, 'utf8')
-    const appJson = JSON.parse(appJsonContent)
+    // Try app.config.js if app.json not found or no package ID
+    const appConfigJsPath = path.join(process.cwd(), 'app.config.js')
+    if (fs.existsSync(appConfigJsPath)) {
+      let appConfig
 
-    if (platform === 'ios') {
-      return appJson?.expo?.ios?.bundleIdentifier || null
-    } else if (platform === 'android') {
-      return appJson?.expo?.android?.package || null
+      try {
+        // Try CommonJS require first
+        const absolutePath = path.resolve(appConfigJsPath)
+        delete require.cache[absolutePath]
+        appConfig = require(absolutePath)
+      } catch (requireError) {
+        // If require fails, skip silently
+        return null
+      }
+
+      // Handle both function and object exports
+      const config = typeof appConfig === 'function' ? appConfig({}) : appConfig
+
+      if (platform === 'ios') {
+        return config?.expo?.ios?.bundleIdentifier || null
+      } else if (platform === 'android') {
+        return config?.expo?.android?.package || null
+      }
     }
 
     return null
@@ -474,7 +525,7 @@ async function uploadBuild(
   let packageId = null
 
   // First try to get from app.json
-  packageId = getPackageIdFromAppJson(metadata.platform)
+  packageId = await getPackageIdFromAppJson(metadata.platform)
 
   // If not found in app.json, try the API endpoint as fallback
   if (!packageId) {
@@ -547,13 +598,13 @@ async function main() {
 
     // Get version from app.json if not provided
     if (!args.version) {
-      const appJsonVersion = getVersionFromAppJson()
+      const appJsonVersion = await getVersionFromAppJson()
       if (appJsonVersion) {
         args.version = appJsonVersion
         log(`Using version from app.json: ${args.version}`)
       } else {
         throw new Error(
-          'No version provided and could not find version in app.json. Please provide --version or ensure app.json has expo.version set.'
+          'No version provided and could not find version in app.json or app.config.js. Please provide --version or ensure your config has expo.version set.'
         )
       }
     }
