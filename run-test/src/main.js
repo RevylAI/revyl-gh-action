@@ -2,7 +2,6 @@ const core = require('@actions/core')
 const httpm = require('@actions/http-client')
 const { monitorTaskViaSSE } = require('./monitor')
 
-
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.

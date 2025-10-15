@@ -7188,7 +7188,6 @@ const core = __nccwpck_require__(2186)
 const httpm = __nccwpck_require__(6255)
 const { monitorTaskViaSSE } = __nccwpck_require__(6768)
 
-
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -7390,7 +7389,7 @@ const { generateShareableReportLink } = __nccwpck_require__(7098)
 const { setOutputsFromCompletedTest } = __nccwpck_require__(4368)
 
 /**
- * Monitor a single test task via SSE
+ * Monitor a single test task via SSE using the unified stream endpoint
  * @param {string} taskId - The task ID to monitor
  * @param {string} testId - The test ID
  * @param {string} backendBaseUrl - Backend base URL for SSE and report API
@@ -7398,13 +7397,19 @@ const { setOutputsFromCompletedTest } = __nccwpck_require__(4368)
  * @param {number} timeoutSeconds - Maximum time to wait
  * @returns {Promise<string|null>} Final status or null if timeout
  */
-async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds) {
+async function monitorTest(
+  taskId,
+  testId,
+  backendBaseUrl,
+  client,
+  timeoutSeconds
+) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now()
     let finalStatus = null
     let reportLink = null
 
-    const sseUrl = `${backendBaseUrl}/api/v1/tests/monitor/stream?include_queued=true`
+    const sseUrl = `${backendBaseUrl}/api/v1/monitor/stream/unified`
     const eventSource = new EventSource(sseUrl, {
       headers: { Authorization: `Bearer ${process.env['REVYL_API_KEY']}` }
     })
@@ -7415,7 +7420,9 @@ async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSecond
     }, timeoutSeconds * 1000)
 
     eventSource.onopen = () => {
-      core.info('🔗 SSE connection established - monitoring test execution in real-time')
+      core.info(
+        '🔗 SSE connection established - monitoring test execution in real-time'
+      )
     }
 
     eventSource.onerror = error => {
@@ -7433,8 +7440,30 @@ async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSecond
     eventSource.addEventListener('initial_state', event => {
       const data = JSON.parse(event.data)
       const runningTests = data.running_tests || []
-      const ourTask = runningTests.find(test => test.task_id === taskId)
-      if (ourTask) logProgress(ourTask, testId, null)
+
+      // Find our test in the array (tests are OrgTestMonitorItem objects)
+      const ourTestItem = runningTests.find(item => item.task_id === taskId)
+      if (ourTestItem) {
+        // Convert OrgTestMonitorItem to the format expected by logProgress
+        // OrgTestMonitorItem has: task_id, test_id, test_name, status, phase, etc.
+        const testData = {
+          task_id: ourTestItem.task_id,
+          test_id: ourTestItem.test_id,
+          test_name: ourTestItem.test_name,
+          status: ourTestItem.status,
+          phase: ourTestItem.phase,
+          current_step: ourTestItem.current_step,
+          current_step_index: ourTestItem.current_step_index,
+          total_steps: ourTestItem.total_steps,
+          steps_completed: ourTestItem.steps_completed,
+          progress: ourTestItem.progress
+        }
+        logProgress(testData, testId, null)
+      } else {
+        core.info(
+          `📡 Connected to unified stream - waiting for test ${testId} (task: ${taskId}) to start...`
+        )
+      }
     })
 
     eventSource.addEventListener('test_started', event => {
@@ -7448,7 +7477,8 @@ async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSecond
 
     eventSource.addEventListener('test_updated', event => {
       const data = JSON.parse(event.data)
-      if (data.test && data.test.task_id === taskId) logProgress(data.test, testId, null)
+      if (data.test && data.test.task_id === taskId)
+        logProgress(data.test, testId, null)
     })
 
     eventSource.addEventListener('test_completed_with_data', async event => {
@@ -7457,19 +7487,27 @@ async function monitorTest(taskId, testId, backendBaseUrl, client, timeoutSecond
         core.startGroup(`✅ Test Completed Successfully: ${data.test_name}`)
         if (data.completed_test) {
           core.info('🔗 Generating shareable report link...')
-          reportLink = await generateShareableReportLink(data.completed_test, backendBaseUrl)
+          reportLink = await generateShareableReportLink(
+            data.completed_test,
+            backendBaseUrl
+          )
           if (reportLink) {
-            core.notice(`📊 Test Report: ${reportLink}`, { title: '✅ Test Completed Successfully', file: 'test-execution' })
+            core.notice(`📊 Test Report: ${reportLink}`, {
+              title: '✅ Test Completed Successfully',
+              file: 'test-execution'
+            })
             core.setOutput('report_link', reportLink)
             core.summary
               .addHeading('Test Execution Completed 🎉 ', 2)
-              .addRaw(`
+              .addRaw(
+                `
 **Test Name:** \`${data.test_name}\`
 **Status:** ✅ Success
 **Report:** [View Detailed Report](${reportLink})
 
 The test has completed successfully! Click the report link above to view detailed execution logs, screenshots, and performance metrics.
-              `)
+              `
+              )
               .write()
           } else {
             core.warning('⚠️  Could not generate shareable report link')
@@ -7490,14 +7528,23 @@ The test has completed successfully! Click the report link above to view detaile
         core.startGroup(`❌ Test Failed: ${data.test_name}`)
         if (data.failed_test) {
           core.info('🔗 Generating shareable report link for failed test...')
-          reportLink = await generateShareableReportLink(data.failed_test, backendBaseUrl)
+          reportLink = await generateShareableReportLink(
+            data.failed_test,
+            backendBaseUrl
+          )
           if (reportLink) {
-            core.error(`❌ Test Failed: ${data.test_name}`, { title: 'Test Execution Failed', file: 'test-execution' })
-            core.notice(`📊 Failure Report: ${reportLink}`, { title: '🔍 Debug Information Available' })
+            core.error(`❌ Test Failed: ${data.test_name}`, {
+              title: 'Test Execution Failed',
+              file: 'test-execution'
+            })
+            core.notice(`📊 Failure Report: ${reportLink}`, {
+              title: '🔍 Debug Information Available'
+            })
             core.setOutput('report_link', reportLink)
             core.summary
               .addHeading('Test Execution Failed ❌', 2)
-              .addRaw(`
+              .addRaw(
+                `
 **Test ID:** \`${data.test_name}\`
 **Status:** ❌ Failed
 **Report:** [View Failure Analysis](${reportLink})
@@ -7509,7 +7556,8 @@ The test execution failed. The detailed report contains:
 - 💡 Suggested debugging steps
 
 Click the report link above to investigate the failure.
-              `)
+              `
+              )
               .write()
           } else {
             core.warning('⚠️  Could not generate shareable report link')
@@ -7558,25 +7606,30 @@ Click the report link above to investigate the failure.
     })
 
     eventSource.addEventListener('heartbeat', event => {
-      const data = JSON.parse(event.data)
-      if (data.active_tests === 0 && Date.now() - startTime > 30000) {
-        console.log('No active tests detected in heartbeat')
-      }
+      // Keep-alive signal from unified stream
+      // The unified endpoint doesn't include active_tests count in heartbeat
+      // No action needed, connection is healthy
     })
 
     eventSource.addEventListener('error', event => {
-      const data = JSON.parse(event.data)
-      console.error('SSE error event:', data.error || data.message)
-      eventSource.close()
-      clearTimeout(timeoutHandle)
-      reject(new Error(`SSE error: ${data.error || data.message}`))
+      try {
+        const data = JSON.parse(event.data)
+        console.error('SSE error event:', data.error || data.message)
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        reject(new Error(`SSE error: ${data.error || data.message}`))
+      } catch (e) {
+        // Handle non-JSON error events
+        console.error('SSE error (non-JSON):', event)
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        reject(new Error('SSE connection error'))
+      }
     })
   })
 }
 
 module.exports = { monitorTest }
-
-
 
 
 /***/ }),
@@ -7588,7 +7641,7 @@ const core = __nccwpck_require__(2186)
 const EventSource = __nccwpck_require__(8883)
 
 /**
- * Monitor a workflow task via SSE
+ * Monitor a workflow task via SSE using the unified stream endpoint
  * @param {string} taskId - The task ID to monitor
  * @param {string} workflowId - The workflow ID
  * @param {string} backendBaseUrl - Backend base URL for SSE
@@ -7596,11 +7649,17 @@ const EventSource = __nccwpck_require__(8883)
  * @param {number} timeoutSeconds - Maximum time to wait
  * @returns {Promise<string|null>} Final status or null if timeout
  */
-async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeoutSeconds) {
+async function monitorWorkflow(
+  taskId,
+  workflowId,
+  backendBaseUrl,
+  client,
+  timeoutSeconds
+) {
   return new Promise((resolve, reject) => {
     let finalStatus = null
 
-    const sseUrl = `${backendBaseUrl}/api/v1/workflows/monitor/stream`
+    const sseUrl = `${backendBaseUrl}/api/v1/monitor/stream/unified`
     const eventSource = new EventSource(sseUrl, {
       headers: { Authorization: `Bearer ${process.env['REVYL_API_KEY']}` }
     })
@@ -7611,7 +7670,9 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
     }, timeoutSeconds * 1000)
 
     eventSource.onopen = () => {
-      core.info('🔗 SSE connection established - monitoring workflow execution in real-time')
+      core.info(
+        '🔗 SSE connection established - monitoring workflow execution in real-time'
+      )
     }
 
     eventSource.onerror = error => {
@@ -7629,30 +7690,47 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
     eventSource.addEventListener('initial_state', event => {
       const data = JSON.parse(event.data)
       const runningWorkflows = data.running_workflows || []
-      const ourWorkflow = runningWorkflows.find(wf => wf.task.task_id === taskId)
-      
+
+      // Find our workflow in the array (workflows are OrgWorkflowMonitorItem objects)
+      const ourWorkflow = runningWorkflows.find(
+        wf => wf.task && wf.task.task_id === taskId
+      )
+
       if (ourWorkflow) {
         const task = ourWorkflow.task
         const progress = ourWorkflow.progress || 0
-        
+
         core.info(`📊 Workflow: ${ourWorkflow.workflow_name}`)
         core.info(`📈 Progress: ${(progress * 100).toFixed(1)}%`)
         core.info(`🔄 Status: ${task.status}`)
-        
+
         if (task.total_tests) {
-          core.info(`🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`)
+          core.info(
+            `🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`
+          )
         }
-        
+
         // Set initial outputs
         core.setOutput('status', task.status)
         core.setOutput('total_tests', (task.total_tests || 0).toString())
-        core.setOutput('completed_tests', (task.completed_tests || 0).toString())
+        core.setOutput(
+          'completed_tests',
+          (task.completed_tests || 0).toString()
+        )
+      } else {
+        core.info(
+          `📡 Connected to unified stream - waiting for workflow ${workflowId} (task: ${taskId}) to start...`
+        )
       }
     })
 
     eventSource.addEventListener('workflow_started', event => {
       const data = JSON.parse(event.data)
-      if (data.workflow && data.workflow.task && data.workflow.task.task_id === taskId) {
+      if (
+        data.workflow &&
+        data.workflow.task &&
+        data.workflow.task.task_id === taskId
+      ) {
         const wf = data.workflow
         core.info(`🚀 Workflow started: ${wf.workflow_name}`)
         core.setOutput('status', wf.task.status)
@@ -7661,20 +7739,31 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
 
     eventSource.addEventListener('workflow_updated', event => {
       const data = JSON.parse(event.data)
-      if (data.workflow && data.workflow.task && data.workflow.task.task_id === taskId) {
+      if (
+        data.workflow &&
+        data.workflow.task &&
+        data.workflow.task.task_id === taskId
+      ) {
         const wf = data.workflow
         const task = wf.task
         const progress = wf.progress || 0
-        
-        core.info(`📊 Status: ${task.status} | Progress: ${(progress * 100).toFixed(1)}%`)
-        
+
+        core.info(
+          `📊 Status: ${task.status} | Progress: ${(progress * 100).toFixed(1)}%`
+        )
+
         if (task.total_tests) {
-          core.info(`🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`)
+          core.info(
+            `🧪 Tests: ${task.completed_tests || 0}/${task.total_tests}`
+          )
         }
-        
+
         // Update outputs
         core.setOutput('status', task.status)
-        core.setOutput('completed_tests', (task.completed_tests || 0).toString())
+        core.setOutput(
+          'completed_tests',
+          (task.completed_tests || 0).toString()
+        )
         core.setOutput('total_tests', (task.total_tests || 0).toString())
       }
     })
@@ -7682,24 +7771,40 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
     eventSource.addEventListener('workflow_completed', event => {
       const data = JSON.parse(event.data)
       if (data.task_id === taskId) {
-        core.startGroup(`✅ Workflow Completed Successfully: ${data.workflow_name || workflowId}`)
-        
+        core.startGroup(
+          `✅ Workflow Completed Successfully: ${data.workflow_name || workflowId}`
+        )
+
         // Set final success outputs
         core.setOutput('success', 'true')
         core.setOutput('status', 'completed')
-        
+
         // Fetch final results from the API
         fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
           .then(results => {
             if (results) {
-              core.setOutput('total_tests', (results.total_tests || 0).toString())
-              core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-              core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-              core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+              core.setOutput(
+                'total_tests',
+                (results.total_tests || 0).toString()
+              )
+              core.setOutput(
+                'completed_tests',
+                (results.completed_tests || 0).toString()
+              )
+              core.setOutput(
+                'passed_tests',
+                (results.passed_tests || 0).toString()
+              )
+              core.setOutput(
+                'failed_tests',
+                (results.failed_tests || 0).toString()
+              )
             }
           })
-          .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
-        
+          .catch(err =>
+            core.warning(`Could not fetch final results: ${err.message}`)
+          )
+
         core.notice(`✅ Workflow completed successfully`)
         core.info(`🆔 Task ID: ${taskId}`)
         core.endGroup()
@@ -7713,33 +7818,54 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
     eventSource.addEventListener('workflow_failed', event => {
       const data = JSON.parse(event.data)
       if (data.task_id === taskId) {
-        core.startGroup(`❌ Workflow Failed: ${data.workflow_name || workflowId}`)
-        
+        core.startGroup(
+          `❌ Workflow Failed: ${data.workflow_name || workflowId}`
+        )
+
         // Set failure outputs
         core.setOutput('success', 'false')
         core.setOutput('status', 'failed')
-        
+
         // Fetch final results from the API
         fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
           .then(results => {
             if (results) {
-              core.setOutput('total_tests', (results.total_tests || 0).toString())
-              core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-              core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-              core.setOutput('failed_tests', (results.failed_tests || 0).toString())
-              
+              core.setOutput(
+                'total_tests',
+                (results.total_tests || 0).toString()
+              )
+              core.setOutput(
+                'completed_tests',
+                (results.completed_tests || 0).toString()
+              )
+              core.setOutput(
+                'passed_tests',
+                (results.passed_tests || 0).toString()
+              )
+              core.setOutput(
+                'failed_tests',
+                (results.failed_tests || 0).toString()
+              )
+
               // Check for failed tests
               if (results.tests && Array.isArray(results.tests)) {
-                const failedTests = results.tests.filter(t => t.status === 'failed' || t.status === 'error')
+                const failedTests = results.tests.filter(
+                  t => t.status === 'failed' || t.status === 'error'
+                )
                 if (failedTests.length > 0 && failedTests[0].error) {
                   core.setOutput('error_message', failedTests[0].error)
                 }
               }
             }
           })
-          .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
-        
-        core.error(`❌ Workflow failed`, { title: 'Workflow Execution Failed', file: 'workflow-execution' })
+          .catch(err =>
+            core.warning(`Could not fetch final results: ${err.message}`)
+          )
+
+        core.error(`❌ Workflow failed`, {
+          title: 'Workflow Execution Failed',
+          file: 'workflow-execution'
+        })
         core.info(`🆔 Task ID: ${taskId}`)
         core.endGroup()
         finalStatus = 'failed'
@@ -7752,7 +7878,9 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
     eventSource.addEventListener('workflow_cancelled', event => {
       const data = JSON.parse(event.data)
       if (data.task_id === taskId) {
-        core.warning(`⚠️ Workflow cancelled: ${data.workflow_name || workflowId}`)
+        core.warning(
+          `⚠️ Workflow cancelled: ${data.workflow_name || workflowId}`
+        )
         core.setOutput('success', 'false')
         core.setOutput('status', 'cancelled')
         finalStatus = 'cancelled'
@@ -7762,16 +7890,25 @@ async function monitorWorkflow(taskId, workflowId, backendBaseUrl, client, timeo
       }
     })
 
-    eventSource.addEventListener('heartbeat', () => {
-      // Keep-alive signal, no action needed
+    eventSource.addEventListener('heartbeat', event => {
+      // Keep-alive signal from unified stream, no action needed
+      // Optional: could log timestamp for debugging
     })
 
     eventSource.addEventListener('error', event => {
-      const data = JSON.parse(event.data)
-      console.error('SSE error event:', data.error || data.message)
-      eventSource.close()
-      clearTimeout(timeoutHandle)
-      reject(new Error(`SSE error: ${data.error || data.message}`))
+      try {
+        const data = JSON.parse(event.data)
+        console.error('SSE error event:', data.error || data.message)
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        reject(new Error(`SSE error: ${data.error || data.message}`))
+      } catch (e) {
+        // Handle non-JSON error events
+        console.error('SSE error (non-JSON):', event)
+        eventSource.close()
+        clearTimeout(timeoutHandle)
+        reject(new Error('SSE connection error'))
+      }
     })
   })
 }
@@ -7787,23 +7924,27 @@ async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
   try {
     const url = `${backendBaseUrl}/api/v1/workflows/tasks/workflow_task?task_id=${taskId}`
     const res = await client.get(url)
-    
+
     if (res.message.statusCode === 200) {
       const body = await res.readBody()
       const data = JSON.parse(body)
-      
+
       // The response should be a WorkflowTasksBaseSchema
       const task = data.data || data
-      
+
       // Calculate passed/failed from tests array
       let passed_tests = 0
       let failed_tests = 0
-      
+
       if (task.tests && Array.isArray(task.tests)) {
-        passed_tests = task.tests.filter(t => t.status === 'passed' || t.status === 'success').length
-        failed_tests = task.tests.filter(t => t.status === 'failed' || t.status === 'error').length
+        passed_tests = task.tests.filter(
+          t => t.status === 'passed' || t.status === 'success'
+        ).length
+        failed_tests = task.tests.filter(
+          t => t.status === 'failed' || t.status === 'error'
+        ).length
       }
-      
+
       return {
         total_tests: task.total_tests || 0,
         completed_tests: task.completed_tests || 0,
@@ -7819,6 +7960,7 @@ async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
 }
 
 module.exports = { monitorWorkflow }
+
 
 /***/ }),
 
