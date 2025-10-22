@@ -2,6 +2,24 @@ const core = require('@actions/core')
 const EventSource = require('eventsource')
 
 /**
+ * Safely parse JSON from SSE event data
+ * @param {any} event - The SSE event
+ * @param {string} eventType - The event type for logging
+ * @returns {object|null} Parsed data or null if parsing fails
+ */
+function safeParseEventData(event, eventType) {
+  try {
+    return JSON.parse(event.data)
+  } catch (error) {
+    core.error(
+      `Failed to parse ${eventType} event data: ${error.message}`
+    )
+    core.debug(`Malformed event data: ${event.data}`)
+    return null
+  }
+}
+
+/**
  * Monitor a workflow task via SSE using the unified stream endpoint
  * @param {string} taskId - The task ID to monitor
  * @param {string} workflowId - The workflow ID
@@ -37,19 +55,35 @@ async function monitorWorkflow(
     }
 
     eventSource.onerror = error => {
-      console.error('SSE connection error:', error)
+      // EventSource error events don't contain detailed error info
+      // Try to extract what we can
+      let errorMsg = 'SSE connection failed'
+
+      if (error) {
+        // Check various properties that might exist
+        if (error.message) errorMsg += `: ${error.message}`
+        else if (error.status) errorMsg += ` (HTTP ${error.status})`
+        else if (error.type === 'error') errorMsg += ' - check network connectivity and authentication'
+      }
+
+      core.error(errorMsg)
+
       eventSource.close()
       clearTimeout(timeoutHandle)
-      reject(new Error(`SSE connection failed: ${error.message || error}`))
+      reject(new Error(errorMsg))
     }
 
     eventSource.addEventListener('connection_ready', event => {
-      const data = JSON.parse(event.data)
-      core.info(`🏢 Connected to organization: ${data.org_id}`)
+      const data = safeParseEventData(event, 'connection_ready')
+      if (data) {
+        core.info(`🏢 Connected to organization: ${data.org_id}`)
+      }
     })
 
     eventSource.addEventListener('initial_state', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'initial_state')
+      if (!data) return
+
       const runningWorkflows = data.running_workflows || []
 
       // Find our workflow in the array (workflows are OrgWorkflowMonitorItem objects)
@@ -86,7 +120,9 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('workflow_started', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'workflow_started')
+      if (!data) return
+
       if (
         data.workflow &&
         data.workflow.task &&
@@ -99,7 +135,9 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('workflow_updated', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'workflow_updated')
+      if (!data) return
+
       if (
         data.workflow &&
         data.workflow.task &&
@@ -130,7 +168,9 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('workflow_completed', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'workflow_completed')
+      if (!data) return
+
       if (data.task_id === taskId) {
         core.startGroup(
           `✅ Workflow Completed Successfully: ${data.workflow_name || workflowId}`
@@ -177,7 +217,9 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('workflow_failed', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'workflow_failed')
+      if (!data) return
+
       if (data.task_id === taskId) {
         core.startGroup(
           `❌ Workflow Failed: ${data.workflow_name || workflowId}`
@@ -237,7 +279,9 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('workflow_cancelled', event => {
-      const data = JSON.parse(event.data)
+      const data = safeParseEventData(event, 'workflow_cancelled')
+      if (!data) return
+
       if (data.task_id === taskId) {
         core.warning(
           `⚠️ Workflow cancelled: ${data.workflow_name || workflowId}`
@@ -257,18 +301,21 @@ async function monitorWorkflow(
     })
 
     eventSource.addEventListener('error', event => {
-      try {
-        const data = JSON.parse(event.data)
-        console.error('SSE error event:', data.error || data.message)
+      const data = safeParseEventData(event, 'error')
+      if (data) {
+        const errorMessage = data.error || data.message || 'Unknown SSE error'
+        core.error(`SSE error event: ${errorMessage}`)
         eventSource.close()
         clearTimeout(timeoutHandle)
-        reject(new Error(`SSE error: ${data.error || data.message}`))
-      } catch (e) {
-        // Handle non-JSON error events
-        console.error('SSE error (non-JSON):', event)
+        reject(new Error(`SSE error: ${errorMessage}`))
+      } else {
+        // Handle non-JSON error events - this is usually a connection-level issue
+        core.error('SSE error event received (non-JSON) - likely a connection or authentication issue')
+        core.error('Event details:', JSON.stringify({ type: event.type, data: event.data }))
+        core.info('Troubleshooting: Verify REVYL_API_KEY is valid and backend service is healthy')
         eventSource.close()
         clearTimeout(timeoutHandle)
-        reject(new Error('SSE connection error'))
+        reject(new Error('SSE connection error - check authentication and network connectivity'))
       }
     })
   })
