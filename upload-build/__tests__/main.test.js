@@ -119,7 +119,7 @@ describe('Upload Build Action', () => {
         'build-var-id': 'test-build-var-id',
         version: '1.0.0',
         'expo-url': 'https://expo.dev/build/123',
-        'backend-url': 'https://backend.cognisim.io'
+        'backend-url': 'https://backend.revyl.ai'
       }
       return inputs[name] || ''
     })
@@ -136,7 +136,7 @@ describe('Upload Build Action', () => {
     await run()
 
     expect(mockPostJson).toHaveBeenCalledWith(
-      'https://backend.cognisim.io/api/v1/builds/vars/test-build-var-id/versions/from-url',
+      'https://backend.revyl.ai/api/v1/builds/vars/test-build-var-id/versions/from-url',
       {
         version: '1.0.0',
         from_url: 'https://expo.dev/build/123',
@@ -156,7 +156,7 @@ describe('Upload Build Action', () => {
         'build-var-id': 'test-build-var-id',
         version: '1.0.0',
         'file-path': '/path/to/file.apk',
-        'backend-url': 'https://backend.cognisim.io'
+        'backend-url': 'https://backend.revyl.ai'
       }
       return inputs[name] || ''
     })
@@ -196,7 +196,7 @@ describe('Upload Build Action', () => {
 
     expect(fs.existsSync).toHaveBeenCalledWith('/path/to/file.apk')
     expect(mockGetJson).toHaveBeenCalledWith(
-      'https://backend.cognisim.io/api/v1/builds/vars/test-build-var-id/versions/upload-url?version=1.0.0&file_name=file.apk'
+      'https://backend.revyl.ai/api/v1/builds/vars/test-build-var-id/versions/upload-url?version=1.0.0&file_name=file.apk'
     )
     expect(mockSendStream).toHaveBeenCalledWith(
       'PUT',

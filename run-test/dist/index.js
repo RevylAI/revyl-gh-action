@@ -7228,10 +7228,10 @@ async function run() {
     // Determine the base URL and endpoints (updated for async execution)
     const deviceBaseUrl =
       core.getInput('revyl-device-url', { required: false }) ||
-      'https://device.cognisim.io'
+      'https://device.revyl.ai'
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
-      'https://backend.cognisim.io'
+      'https://backend.revyl.ai'
 
     const executionBaseUrl = deviceBaseUrl
     const statusBaseUrl = backendBaseUrl
@@ -8222,11 +8222,13 @@ async function generateShareableReportLink(completedTestData, backendBaseUrl) {
     }
 
     if (!testId || !historyId) {
-      console.warn('Could not extract test_id or history_id from completed test data')
+      console.warn(
+        'Could not extract test_id or history_id from completed test data'
+      )
       return null
     }
 
-    const backendUrl = backendBaseUrl || 'https://backend.cognisim.io'
+    const backendUrl = backendBaseUrl || 'https://backend.revyl.ai'
     const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
 
     const response = await fetch(apiUrl, {
@@ -8260,8 +8262,6 @@ async function generateShareableReportLink(completedTestData, backendBaseUrl) {
 }
 
 module.exports = { generateShareableReportLink }
-
-
 
 
 /***/ }),

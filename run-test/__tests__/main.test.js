@@ -1,49 +1,60 @@
 // Mock EventSource to immediately emit completion events
-jest.mock('eventsource', () => {
-  return jest.fn().mockImplementation(function () {
-    this.listeners = {}
-    this.addEventListener = (type, cb) => {
-      this.listeners[type] = cb
-    }
-    setImmediate(() => {
-      if (this.onopen) this.onopen()
-      if (this.listeners['connection_ready']) {
-        this.listeners['connection_ready']({
-          data: JSON.stringify({ org_id: 'org_123' })
-        })
+jest.mock(
+  'eventsource',
+  () => {
+    return jest.fn().mockImplementation(function () {
+      this.listeners = {}
+      this.addEventListener = (type, cb) => {
+        this.listeners[type] = cb
       }
-      const ev = global.__MOCK_EVENT__ || 'test_completed'
-      const taskId = global.__MOCK_TASK_ID__ || 'task_1'
-      if (ev === 'test_completed' && this.listeners['test_completed']) {
-        this.listeners['test_completed']({
-          data: JSON.stringify({ task_id: taskId, test_name: 'Sample' })
-        })
-      }
-      if (ev === 'workflow_completed' && this.listeners['workflow_completed']) {
-        this.listeners['workflow_completed']({
-          data: JSON.stringify({
-            task_id: taskId,
-            workflow_results: {
-              total_tests: 2,
-              completed_tests: 2,
-              passed_tests: 2,
-              failed_tests: 0
-            }
+      setImmediate(() => {
+        if (this.onopen) this.onopen()
+        if (this.listeners['connection_ready']) {
+          this.listeners['connection_ready']({
+            data: JSON.stringify({ org_id: 'org_123' })
           })
-        })
-      }
+        }
+        const ev = global.__MOCK_EVENT__ || 'test_completed'
+        const taskId = global.__MOCK_TASK_ID__ || 'task_1'
+        if (ev === 'test_completed' && this.listeners['test_completed']) {
+          this.listeners['test_completed']({
+            data: JSON.stringify({ task_id: taskId, test_name: 'Sample' })
+          })
+        }
+        if (
+          ev === 'workflow_completed' &&
+          this.listeners['workflow_completed']
+        ) {
+          this.listeners['workflow_completed']({
+            data: JSON.stringify({
+              task_id: taskId,
+              workflow_results: {
+                total_tests: 2,
+                completed_tests: 2,
+                passed_tests: 2,
+                failed_tests: 0
+              }
+            })
+          })
+        }
+      })
+      this.close = () => {}
     })
-    this.close = () => {}
-  })
-}, { virtual: true })
+  },
+  { virtual: true }
+)
 
 // Mock node-fetch to avoid real dependency resolution
-jest.mock('node-fetch', () => {
-  return jest.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({ shareable_link: 'https://example.com/report' })
-  })
-}, { virtual: true })
+jest.mock(
+  'node-fetch',
+  () => {
+    return jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ shareable_link: 'https://example.com/report' })
+    })
+  },
+  { virtual: true }
+)
 
 describe('run function', () => {
   let mockHttpClient
@@ -56,30 +67,38 @@ describe('run function', () => {
     jest.resetModules()
 
     // Provide virtual mocks for core and http-client before requiring main
-    jest.mock('@actions/core', () => ({
-      getInput: jest.fn(),
-      setFailed: jest.fn(),
-      setOutput: jest.fn(),
-      startGroup: jest.fn(),
-      endGroup: jest.fn(),
-      notice: jest.fn(),
-      info: jest.fn(),
-      warning: jest.fn(),
-      error: jest.fn(),
-      summary: {
-        addHeading: jest.fn().mockReturnThis(),
-        addRaw: jest.fn().mockReturnThis(),
-        write: jest.fn().mockResolvedValue(undefined)
-      }
-    }), { virtual: true })
+    jest.mock(
+      '@actions/core',
+      () => ({
+        getInput: jest.fn(),
+        setFailed: jest.fn(),
+        setOutput: jest.fn(),
+        startGroup: jest.fn(),
+        endGroup: jest.fn(),
+        notice: jest.fn(),
+        info: jest.fn(),
+        warning: jest.fn(),
+        error: jest.fn(),
+        summary: {
+          addHeading: jest.fn().mockReturnThis(),
+          addRaw: jest.fn().mockReturnThis(),
+          write: jest.fn().mockResolvedValue(undefined)
+        }
+      }),
+      { virtual: true }
+    )
 
     mockHttpClient = {
       postJson: jest.fn(),
       getJson: jest.fn()
     }
-    jest.mock('@actions/http-client', () => ({
-      HttpClient: jest.fn(() => mockHttpClient)
-    }), { virtual: true })
+    jest.mock(
+      '@actions/http-client',
+      () => ({
+        HttpClient: jest.fn(() => mockHttpClient)
+      }),
+      { virtual: true }
+    )
 
     core = require('@actions/core')
     httpm = require('@actions/http-client')
@@ -164,7 +183,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.cognisim.io/api/execute_test_id_async',
+      'https://device.revyl.ai/api/execute_test_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
@@ -198,7 +217,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.cognisim.io/api/execute_workflow_id_async',
+      'https://device.revyl.ai/api/execute_workflow_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)

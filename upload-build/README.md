@@ -44,17 +44,17 @@ supports both direct file uploads and Expo URL ingestion.
 
 ## Inputs
 
-| Input          | Description                                              | Required | Default                       |
-| -------------- | -------------------------------------------------------- | -------- | ----------------------------- |
-| `build-var-id` | The build variable ID to upload the version to           | ✅       |                               |
-| `version`      | Version string for this build (must be unique)           | ✅       |                               |
-| `file-path`    | Path to the build artifact file                          | ❌\*     |                               |
-| `expo-url`     | Expo build URL to download and upload                    | ❌\*     |                               |
-| `expo-headers` | JSON string of headers for Expo URL download             | ❌       |                               |
-| `metadata`     | JSON string of additional metadata                       | ❌       |                               |
-| `package-name` | Package name/identifier (auto-extracted if not provided) | ❌       |                               |
-| `backend-url`  | CogniSim backend URL                                     | ❌       | `https://backend.cognisim.io` |
-| `timeout`      | Timeout in seconds for upload operation                  | ❌       | `1800`                        |
+| Input          | Description                                              | Required | Default                    |
+| -------------- | -------------------------------------------------------- | -------- | -------------------------- |
+| `build-var-id` | The build variable ID to upload the version to           | ✅       |                            |
+| `version`      | Version string for this build (must be unique)           | ✅       |                            |
+| `file-path`    | Path to the build artifact file                          | ❌\*     |                            |
+| `expo-url`     | Expo build URL to download and upload                    | ❌\*     |                            |
+| `expo-headers` | JSON string of headers for Expo URL download             | ❌       |                            |
+| `metadata`     | JSON string of additional metadata                       | ❌       |                            |
+| `package-name` | Package name/identifier (auto-extracted if not provided) | ❌       |                            |
+| `backend-url`  | CogniSim backend URL                                     | ❌       | `https://backend.revyl.ai` |
+| `timeout`      | Timeout in seconds for upload operation                  | ❌       | `1800`                     |
 
 \*Either `file-path` or `expo-url` must be provided (mutually exclusive).
 

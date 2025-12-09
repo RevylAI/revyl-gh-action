@@ -23,10 +23,12 @@ inputs:
       'Timeout in seconds for the execution to complete. Default 3600.'
     required: false
   revyl-device-url:
-    description: 'Override device base URL (e.g., https://device-staging.cognisim.io)'
+    description:
+      'Override device base URL (e.g., https://device-staging.revyl.ai)'
     required: false
   backend-url:
-    description: 'Override backend base URL (e.g., https://backend-staging.cognisim.io)'
+    description:
+      'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
     required: false
 
 # Define your outputs here.

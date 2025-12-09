@@ -31,11 +31,13 @@ async function generateShareableReportLink(completedTestData, backendBaseUrl) {
     }
 
     if (!testId || !historyId) {
-      console.warn('Could not extract test_id or history_id from completed test data')
+      console.warn(
+        'Could not extract test_id or history_id from completed test data'
+      )
       return null
     }
 
-    const backendUrl = backendBaseUrl || 'https://backend.cognisim.io'
+    const backendUrl = backendBaseUrl || 'https://backend.revyl.ai'
     const apiUrl = `${backendUrl}/api/v1/report/async-run/generate_shareable_report_link`
 
     const response = await fetch(apiUrl, {
@@ -69,5 +71,3 @@ async function generateShareableReportLink(completedTestData, backendBaseUrl) {
 }
 
 module.exports = { generateShareableReportLink }
-
-

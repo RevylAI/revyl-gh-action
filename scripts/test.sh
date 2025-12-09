@@ -20,7 +20,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --debug              Enable debug mode with verbose logging"
-    echo "  --device-url URL     Override device base URL (default: https://device.cognisim.io)"
+    echo "  --device-url URL     Override device base URL (default: https://device.revyl.ai)"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Arguments:"
@@ -80,7 +80,7 @@ debug_log "Debug mode enabled"
 debug_log "Workflow ID: $WORKFLOW_ID"
 
 # Constants
-REVYL_EXECUTE_API_HOST="${DEVICE_BASE_URL:-https://device.cognisim.io}"
+REVYL_EXECUTE_API_HOST="${DEVICE_BASE_URL:-https://device.revyl.ai}"
 
 # Execute the workflow asynchronously
 debug_log "Executing workflow ID: $WORKFLOW_ID"

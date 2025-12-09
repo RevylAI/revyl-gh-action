@@ -8,11 +8,13 @@ on:
         required: true
         default: '6e53b753-6031-4ce4-9ff1-88963c267329'
       device_url:
-        description: 'Override device base URL (e.g., https://device-staging.cognisim.io)'
+        description:
+          'Override device base URL (e.g., https://device-staging.revyl.ai)'
         required: false
         default: ''
       backend_url:
-        description: 'Override backend base URL (e.g., https://backend-staging.cognisim.io)'
+        description:
+          'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
         required: false
         default: ''
 
@@ -52,4 +54,3 @@ jobs:
           echo "Status: ${{ steps.revyl.outputs.status }}"
           echo "Total Tests: ${{ steps.revyl.outputs.total_tests }}"
           echo "Completed: ${{ steps.revyl.outputs.completed_tests }}"
-

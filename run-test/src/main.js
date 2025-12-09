@@ -42,10 +42,10 @@ async function run() {
     // Determine the base URL and endpoints (updated for async execution)
     const deviceBaseUrl =
       core.getInput('revyl-device-url', { required: false }) ||
-      'https://device.cognisim.io'
+      'https://device.revyl.ai'
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
-      'https://backend.cognisim.io'
+      'https://backend.revyl.ai'
 
     const executionBaseUrl = deviceBaseUrl
     const statusBaseUrl = backendBaseUrl

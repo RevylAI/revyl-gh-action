@@ -21,7 +21,7 @@ show_help() {
     echo "Options:"
     echo "  --debug              Enable debug mode with verbose logging"
     echo "  --timeout SECONDS    Maximum time to wait for workflow completion (default: 3600)"
-    echo "  --backend-url URL    Override backend base URL (default: https://backend.cognisim.io)"
+    echo "  --backend-url URL    Override backend base URL (default: https://backend.revyl.ai)"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Arguments:"
@@ -94,7 +94,7 @@ debug_log "Task ID: $TASK_ID"
 debug_log "Timeout: ${TIMEOUT_SECONDS}s"
 
 # Constants
-REVYL_BACKEND_HOST="${BACKEND_BASE_URL:-https://backend.cognisim.io}"
+REVYL_BACKEND_HOST="${BACKEND_BASE_URL:-https://backend.revyl.ai}"
 SSE_URL="${REVYL_BACKEND_HOST}/api/v1/monitor/stream/unified"
 FINAL_RESULTS_URL="${REVYL_BACKEND_HOST}/api/v1/workflows/tasks/workflow_task?task_id=${TASK_ID}"
 

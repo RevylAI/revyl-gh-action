@@ -20,7 +20,7 @@ generation.
   uses: ./actions/run-test
   with:
     test-id: 'your-test-id'
-    revyl-device-url: 'https://device-staging.cognisim.io'
+    revyl-device-url: 'https://device-staging.revyl.ai'
     timeout: '1800' # 30 minutes
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -33,7 +33,7 @@ generation.
   uses: ./actions/run-test
   with:
     workflow-id: 'your-workflow-id'
-    revyl-device-url: 'https://device-staging.cognisim.io'
+    revyl-device-url: 'https://device-staging.revyl.ai'
     timeout: '3600' # 1 hour
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -69,7 +69,7 @@ generation.
   uses: ./actions/run-test
   with:
     test-id: 'your-test-id'
-    revyl-device-url: 'https://device-staging.cognisim.io'
+    revyl-device-url: 'https://device-staging.revyl.ai'
     retries: '2'
     build-version-id: 'specific-build-version-id'
     llm_model_name: 'gpt-4o'
@@ -80,15 +80,15 @@ generation.
 
 ## Inputs
 
-| Input              | Description                                               | Required | Default                              |
-| ------------------ | --------------------------------------------------------- | -------- | ------------------------------------ |
-| `test-id`          | ID of the test to run                                     | No\*     |                                      |
-| `workflow-id`      | ID of the workflow to run                                 | No\*     |                                      |
-| `revyl-device-url` | Revyl device service URL                                  | No       | `https://device-staging.cognisim.io` |
-| `retries`          | Number of retries for failed tests                        | No       | `1`                                  |
-| `llm_model_name`   | LLM model to use                                          | No       |                                      |
-| `build-version-id` | Build version ID to use (overrides test's attached build) | No       |                                      |
-| `timeout`          | Maximum time to wait (seconds)                            | No       | `3600`                               |
+| Input              | Description                                               | Required | Default                           |
+| ------------------ | --------------------------------------------------------- | -------- | --------------------------------- |
+| `test-id`          | ID of the test to run                                     | No\*     |                                   |
+| `workflow-id`      | ID of the workflow to run                                 | No\*     |                                   |
+| `revyl-device-url` | Revyl device service URL                                  | No       | `https://device-staging.revyl.ai` |
+| `retries`          | Number of retries for failed tests                        | No       | `1`                               |
+| `llm_model_name`   | LLM model to use                                          | No       |                                   |
+| `build-version-id` | Build version ID to use (overrides test's attached build) | No       |                                   |
+| `timeout`          | Maximum time to wait (seconds)                            | No       | `3600`                            |
 
 \*Either `test-id` or `workflow-id` must be provided, but not both.
 
@@ -131,7 +131,7 @@ Status: running | Phase: executing | Current Step: "Click login button" | Step P
 Status: running | Phase: executing | Current Step: "Verify dashboard" | Step Progress: 4/5 | Progress: 80%
 Status: running | Phase: executing | Current Step: "Logout" | Step Progress: 5/5 | Progress: 100%
 ✅ Test completed successfully: Login Flow Test
-📊 Report available at: https://backend-staging.cognisim.io/tests/test_123/history/hist_456
+📊 Report available at: https://backend-staging.revyl.ai/tests/test_123/history/hist_456
 ```
 
 ## Error Handling

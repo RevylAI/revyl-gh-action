@@ -25,6 +25,56 @@ monitoring and comprehensive reporting.
 **🎯 New to Revyl Actions?** Start with our
 [complete examples](./examples/README.md) - they include everything you need.
 
+## Upload via curl
+
+The simplest way to upload a build to Revyl:
+
+```bash
+# Android APK
+curl -X POST "https://backend.revyl.ai/api/v1/builds/vars/{BUILD_VAR_ID}/versions/stream-upload?version={VERSION}" \
+  -H "Authorization: Bearer $REVYL_API_KEY" \
+  -F "file=@./app.apk"
+
+# iOS App (zip)
+curl -X POST "https://backend.revyl.ai/api/v1/builds/vars/{BUILD_VAR_ID}/versions/stream-upload?version={VERSION}" \
+  -H "Authorization: Bearer $REVYL_API_KEY" \
+  -F "file=@./MyApp.zip"
+```
+
+**Parameters:**
+
+- `BUILD_VAR_ID` - Your build variable ID (from Revyl dashboard)
+- `VERSION` - Version string (e.g., `1.0.0`, `build-123`)
+- `REVYL_API_KEY` - Your API key
+
+**Response:**
+
+```json
+{
+  "id": "abc-123",
+  "version": "1.0.0",
+  "package_name": "com.example.app",
+  "artifact_url": "...",
+  "metadata": {
+    "package_id": "com.example.app",
+    "artifact_bytes": 12345678,
+    "artifact_sha256": "..."
+  }
+}
+```
+
+### Helper Scripts
+
+We also provide helper scripts in `./scripts/`:
+
+```bash
+# Bash script
+./scripts/upload-build.sh <build-var-id> <file-path> [version]
+
+# Node.js script
+node scripts/upload-local-build.js --build-var-id <id> --file <path> --version <ver>
+```
+
 ## Available Actions
 
 ### Run Test Action (`actions/run-test`)
@@ -65,8 +115,8 @@ inputs/outputs.
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600'
-    backend-url: 'https://backend-staging.cognisim.io'
-    revyl-device-url: 'https://device-staging.cognisim.io'
+    backend-url: 'https://backend-staging.revyl.ai'
+    revyl-device-url: 'https://device-staging.revyl.ai'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 

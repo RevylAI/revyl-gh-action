@@ -1,136 +1,98 @@
 #!/bin/bash
 
-# Revyl Local Build Upload Script
-# 
-# Simple wrapper around the Node.js upload script for easier use
-# 
+# Revyl Build Upload Script
+#
+# Simple script to upload builds to Revyl using curl.
+#
 # Usage:
-#   ./upload-build.sh ios your-build-var-id 1.0.0
-#   ./upload-build.sh android your-build-var-id 1.0.0
+#   ./upload-build.sh <build-var-id> <file-path> [version]
+#
+# Environment:
+#   REVYL_API_KEY - Your Revyl API key (required)
 
-set -e  # Exit on any error
+set -e
 
-# Colors for output
+BACKEND_URL="${REVYL_BACKEND_URL:-https://backend.revyl.ai}"
+
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NODE_SCRIPT="$SCRIPT_DIR/upload-local-build.js"
-
-# Function to print colored output
-log() {
-    local level=$1
-    local message=$2
-    case $level in
-        "error")
-            echo -e "${RED}❌ $message${NC}" >&2
-            ;;
-        "success")
-            echo -e "${GREEN}✅ $message${NC}"
-            ;;
-        "warning")
-            echo -e "${YELLOW}⚠️  $message${NC}"
-            ;;
-        "info")
-            echo -e "${BLUE}📝 $message${NC}"
-            ;;
-    esac
-}
-
-# Check if Node.js is installed
-if ! command -v node &> /dev/null; then
-    log "error" "Node.js is not installed. Please install Node.js to use this script."
-    exit 1
-fi
-
-# Check if the Node.js script exists
-if [ ! -f "$NODE_SCRIPT" ]; then
-    log "error" "Upload script not found at: $NODE_SCRIPT"
-    exit 1
-fi
-
-# Show help if no arguments provided
-if [ $# -eq 0 ]; then
+# Show help
+if [ $# -lt 2 ]; then
     echo ""
-    log "info" "Revyl Local Build Upload Script"
+    echo -e "${BLUE}Revyl Build Upload Script${NC}"
     echo ""
     echo "Usage:"
-    echo "  $0 <platform> <build-var-id> <version> [profile] [additional-args...]"
+    echo "  $0 <build-var-id> <file-path> [version]"
     echo ""
     echo "Arguments:"
-    echo "  platform       ios or android"
     echo "  build-var-id   Your Revyl build variable ID"
-    echo "  version        Version string for this build"
-    echo "  profile        EAS build profile (optional, default: e2e-test)"
+    echo "  file-path      Path to build file (.apk, .zip, .ipa)"
+    echo "  version        Version string (optional, defaults to timestamp)"
     echo ""
-    echo "Environment Variables:"
-    echo "  REVYL_API_KEY  Your Revyl API key (required)"
+    echo "Environment:"
+    echo "  REVYL_API_KEY       Your Revyl API key (required)"
+    echo "  REVYL_BACKEND_URL   Backend URL (default: https://backend.revyl.ai)"
     echo ""
     echo "Examples:"
-    echo "  $0 ios abc-123-def 1.0.0"
-    echo "  $0 android abc-123-def 1.0.0 production"
-    echo "  $0 ios abc-123-def 1.0.0 e2e-test --metadata '{\"env\":\"staging\"}'"
+    echo "  $0 abc-123-def ./app.apk 1.0.0"
+    echo "  $0 abc-123-def ./MyApp.zip"
     echo ""
-    echo "Get your API key from: https://auth.revyl.ai/account/api_keys"
+    echo "Get API key: https://auth.revyl.ai/account/api_keys"
     echo ""
     exit 0
 fi
 
-# Parse arguments
-PLATFORM=$1
-BUILD_VAR_ID=$2
-VERSION=$3
-PROFILE=${4:-e2e-test}
-shift 3  # Remove first 3 arguments
-if [ $# -gt 0 ]; then
-    shift 1  # Remove profile if provided
-fi
+BUILD_VAR_ID="$1"
+FILE_PATH="$2"
+VERSION="${3:-build-$(date +%s)}"
 
-# Validate required arguments
-if [ -z "$PLATFORM" ] || [ -z "$BUILD_VAR_ID" ] || [ -z "$VERSION" ]; then
-    log "error" "Missing required arguments. Run '$0' with no arguments for help."
-    exit 1
-fi
-
-if [ "$PLATFORM" != "ios" ] && [ "$PLATFORM" != "android" ]; then
-    log "error" "Platform must be 'ios' or 'android'"
-    exit 1
-fi
-
-# Check for API key
+# Validate
 if [ -z "$REVYL_API_KEY" ]; then
-    log "error" "REVYL_API_KEY environment variable is not set."
-    log "info" "Get your API key from: https://auth.revyl.ai/account/api_keys"
-    log "info" "Then run: export REVYL_API_KEY=your-api-key-here"
+    echo -e "${RED}❌ REVYL_API_KEY environment variable is required${NC}"
     exit 1
 fi
 
-# Build the command
-CMD_ARGS=(
-    "--platform" "$PLATFORM"
-    "--build-var-id" "$BUILD_VAR_ID"
-    "--version" "$VERSION"
-    "--profile" "$PROFILE"
-)
+if [ ! -f "$FILE_PATH" ]; then
+    echo -e "${RED}❌ File not found: $FILE_PATH${NC}"
+    exit 1
+fi
 
-# Add any additional arguments passed to the script
-CMD_ARGS+=("$@")
+FILE_NAME=$(basename "$FILE_PATH")
+FILE_SIZE=$(ls -lh "$FILE_PATH" | awk '{print $5}')
 
-log "info" "Starting Revyl build upload..."
-log "info" "Platform: $PLATFORM"
-log "info" "Build Variable ID: $BUILD_VAR_ID"
-log "info" "Version: $VERSION"
-log "info" "Profile: $PROFILE"
+echo ""
+echo -e "📦 Uploading ${BLUE}$FILE_NAME${NC} ($FILE_SIZE)"
+echo "   Version: $VERSION"
+echo "   Build Var: $BUILD_VAR_ID"
+echo ""
 
-# Run the Node.js script
-if node "$NODE_SCRIPT" "${CMD_ARGS[@]}"; then
-    log "success" "Build uploaded successfully!"
+# Upload using stream-upload endpoint
+RESPONSE=$(curl -s -w "\n%{http_code}" \
+    -X POST "${BACKEND_URL}/api/v1/builds/vars/${BUILD_VAR_ID}/versions/stream-upload?version=${VERSION}" \
+    -H "Authorization: Bearer ${REVYL_API_KEY}" \
+    -F "file=@${FILE_PATH}")
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" = "200" ]; then
+    VERSION_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    PACKAGE_NAME=$(echo "$BODY" | grep -o '"package_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    echo -e "${GREEN}✅ Upload successful!${NC}"
+    echo ""
+    echo "   Version ID: $VERSION_ID"
+    echo "   Version: $VERSION"
+    if [ -n "$PACKAGE_NAME" ] && [ "$PACKAGE_NAME" != "null" ]; then
+        echo "   Package: $PACKAGE_NAME"
+    fi
+    echo ""
 else
-    log "error" "Build upload failed!"
+    echo -e "${RED}❌ Upload failed (HTTP $HTTP_CODE)${NC}"
+    echo "$BODY"
     exit 1
 fi
-
