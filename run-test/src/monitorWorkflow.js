@@ -112,6 +112,7 @@ async function monitorWorkflow(
     const activeTests = new Map() // task_id -> { name, startTime }
     let testsPassed = 0
     let testsFailed = 0
+    let workflowHeaderLogged = false // Prevent duplicate workflow header logging
 
     const sseUrl = `${backendBaseUrl}/api/v1/monitor/stream/unified`
     const timeoutMs = timeoutSeconds * 1000
@@ -277,9 +278,14 @@ async function monitorWorkflow(
 
         if (ourWorkflow) {
           workflowStarted = true
-          const totalTests = ourWorkflow.task.total_tests || '?'
-          core.info(`🚀 ${ourWorkflow.workflow_name} (${totalTests} tests)`)
-          core.info('')
+
+          // Only log workflow header once
+          if (!workflowHeaderLogged) {
+            workflowHeaderLogged = true
+            const totalTests = ourWorkflow.task.total_tests || '?'
+            core.info(`🚀 ${ourWorkflow.workflow_name} (${totalTests} tests)`)
+            core.info('')
+          }
 
           // Set initial outputs
           core.setOutput('status', ourWorkflow.task.status)
@@ -336,9 +342,15 @@ async function monitorWorkflow(
         ) {
           const wf = data.workflow
           workflowStarted = true
-          const totalTests = wf.task.total_tests || '?'
-          core.info(`🚀 ${wf.workflow_name} (${totalTests} tests)`)
-          core.info('')
+
+          // Only log workflow header once
+          if (!workflowHeaderLogged) {
+            workflowHeaderLogged = true
+            const totalTests = wf.task.total_tests || '?'
+            core.info(`🚀 ${wf.workflow_name} (${totalTests} tests)`)
+            core.info('')
+          }
+
           core.setOutput('status', wf.task.status)
         }
       })
@@ -450,13 +462,17 @@ async function monitorWorkflow(
         const test = data.test
         if (test && test.parent_workflow_task_id === taskId) {
           const testTaskId = test.task_id
-          const testName = test.test_name || 'Unknown Test'
-          const reportUrl = `${DASHBOARD_BASE_URL}/tests/report?taskId=${testTaskId}`
 
-          activeTests.set(testTaskId, { name: testName, startTime: Date.now() })
+          // Only log test info once (prevent duplicates from reconnection)
+          if (!activeTests.has(testTaskId)) {
+            const testName = test.test_name || 'Unknown Test'
+            const reportUrl = `${DASHBOARD_BASE_URL}/tests/report?taskId=${testTaskId}`
 
-          core.info(`  🧪 ${testName}`)
-          core.info(`     📋 Report: ${reportUrl}`)
+            activeTests.set(testTaskId, { name: testName, startTime: Date.now() })
+
+            core.info(`  🧪 ${testName}`)
+            core.info(`     📋 Report: ${reportUrl}`)
+          }
         }
       })
 
