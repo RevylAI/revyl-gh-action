@@ -15,12 +15,10 @@ inputs:
     required: false
     default: '3600'
   revyl-device-url:
-    description:
-      'Override device base URL (e.g., https://device-staging.revyl.ai)'
+    description: 'Override device base URL (e.g., https://device-staging.revyl.ai)'
     required: false
   backend-url:
-    description:
-      'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
+    description: 'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
     required: false
 
 outputs:
@@ -54,7 +52,7 @@ runs:
   steps:
     - name: Execute workflow (delegates to core runner)
       id: run
-      uses: ./run-test
+      uses: RevylAI/revyl-gh-action/run-test@main
       with:
         workflow-id: ${{ inputs.workflow-id }}
         retries: ${{ inputs.retries }}

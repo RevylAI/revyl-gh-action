@@ -77,7 +77,7 @@ node scripts/upload-local-build.js --build-var-id <id> --file <path> --version <
 
 ## Available Actions
 
-### Run Test Action (`actions/run-test`)
+### Run Test Action (`run-test`)
 
 Execute Revyl tests or workflows with real-time SSE monitoring, automatic
 retries, and shareable report generation.
@@ -122,7 +122,7 @@ inputs/outputs.
 
 # Cross-repo usage
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v1
+  uses: RevylAI/revyl-gh-action/run-workflow@main
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600'
@@ -130,7 +130,7 @@ inputs/outputs.
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
-### Upload Build Action (`actions/upload-build`)
+### Upload Build Action (`upload-build`)
 
 Upload mobile app builds (APK, ZIP, .app) with automatic CI/CD metadata
 injection and multi-source support.
@@ -184,7 +184,7 @@ When using Expo/EAS builds, you'll need:
     EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
 - name: Upload to Revyl
-  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  uses: RevylAI/revyl-gh-action/upload-build@main
   with:
     build-var-id: ${{ env.BUILD_VAR_ID }}
     version: ${{ github.sha }}
@@ -231,7 +231,7 @@ jobs:
 
       - name: Upload Build to Revyl
         id: upload-build
-        uses: RevylAI/revyl-gh-action/actions/upload-build@main
+        uses: RevylAI/revyl-gh-action/upload-build@main
         with:
           build-var-id: ${{ env.BUILD_VAR_ID }}
           version: ${{ github.sha }}
@@ -240,7 +240,7 @@ jobs:
           REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
       - name: Run Tests on New Build
-        uses: RevylAI/revyl-gh-action/actions/run-test@main
+        uses: RevylAI/revyl-gh-action/run-test@main
         with:
           test-id: ${{ env.TEST_ID }}
           build-version-id: ${{ steps.upload-build.outputs.version-id }}
@@ -254,7 +254,7 @@ jobs:
 
 ```yaml
 - name: Upload Build
-  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  uses: RevylAI/revyl-gh-action/upload-build@main
   with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
@@ -264,7 +264,7 @@ jobs:
 
 # For Expo builds (iOS .tar.gz automatically converted to .zip)
 - name: Upload Expo Build
-  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  uses: RevylAI/revyl-gh-action/upload-build@main
     with:
     build-var-id: 'your-build-variable-id'
     version: '1.0.0'
@@ -279,7 +279,7 @@ jobs:
 ```yaml
 # Basic test execution
 - name: Run Revyl Test
-  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     timeout: 3600 # 60 minutes
@@ -289,7 +289,7 @@ jobs:
 
 # Run a workflow instead of a single test
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     workflow-id: 'your-workflow-id'
     timeout: 7200 # 2 hours for longer workflows
@@ -298,7 +298,7 @@ jobs:
 
 # With specific build version (from upload-build output)
 - name: Run Test with Specific Build
-  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     build-version-id: ${{ steps.upload.outputs.version-id }}
@@ -368,7 +368,7 @@ steps:
 ```yaml
 - name: Upload Build
   id: upload
-  uses: RevylAI/revyl-gh-action/actions/upload-build@main
+  uses: RevylAI/revyl-gh-action/upload-build@main
   # ... configuration ...
 
 - name: Use Upload Results
@@ -380,7 +380,7 @@ steps:
 
 - name: Run Test
   id: test
-  uses: RevylAI/revyl-gh-action/actions/run-test@main
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: ${{ env.TEST_ID }}
     build-version-id: ${{ steps.upload.outputs.version-id }}
@@ -400,15 +400,15 @@ For comprehensive documentation including framework-specific build guides:
 - **[Complete Documentation](https://docs.revyl.ai/ci-recipes/github-actions)**
 - **[Mobile Build Guides](https://docs.revyl.ai/platform/mobileguides)** - React
   Native, Expo, Flutter, etc.
-- [Run Test Action README](./actions/run-test/README.md)
-- [Upload Build Action README](./actions/upload-build/README.md)
+- [Run Test Action README](./run-test/README.md)
+- [Upload Build Action README](./upload-build/README.md)
 
 ## Development
 
 Each action is self-contained with its own dependencies and build process:
 
 ```bash
-cd actions/[action-name]
+cd [action-name]  # e.g., run-test, upload-build
 npm install
 npm test
 npm run package

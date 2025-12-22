@@ -1,6 +1,6 @@
-name: 'CogniSim GH Action'
-description: 'Run a Cognisim test given an api key and a test id.'
-author: 'CogniSim'
+name: 'Run Revyl Test'
+description: 'Run a Revyl test or workflow with real-time monitoring'
+author: 'Revyl'
 
 # Define your inputs here.
 inputs:
