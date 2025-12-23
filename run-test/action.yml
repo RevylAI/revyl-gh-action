@@ -30,6 +30,19 @@ inputs:
     description:
       'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
     required: false
+  no-wait:
+    description:
+      'If true, launch the test/workflow and exit immediately after it starts
+      without waiting for completion. The action succeeds as long as the
+      execution was successfully queued.'
+    required: false
+    default: 'false'
+  start-timeout:
+    description:
+      'Timeout in seconds to wait for the test/workflow to start (only used
+      with no-wait mode). Default 60.'
+    required: false
+    default: '60'
 
 # Define your outputs here.
 outputs:

@@ -16,6 +16,28 @@ jest.mock(
         }
         const ev = global.__MOCK_EVENT__ || 'test_completed'
         const taskId = global.__MOCK_TASK_ID__ || 'task_1'
+
+        // Handle test_started event (for no-wait mode)
+        if (ev === 'test_started' && this.listeners['test_started']) {
+          this.listeners['test_started']({
+            data: JSON.stringify({
+              test: { task_id: taskId, test_name: 'Sample Test' }
+            })
+          })
+        }
+
+        // Handle workflow_started event (for no-wait mode)
+        if (ev === 'workflow_started' && this.listeners['workflow_started']) {
+          this.listeners['workflow_started']({
+            data: JSON.stringify({
+              workflow: {
+                workflow_name: 'Sample Workflow',
+                task: { task_id: taskId, total_tests: 3 }
+              }
+            })
+          })
+        }
+
         if (ev === 'test_completed' && this.listeners['test_completed']) {
           this.listeners['test_completed']({
             data: JSON.stringify({ task_id: taskId, test_name: 'Sample' })
@@ -115,7 +137,8 @@ describe('run function', () => {
         'workflow-id': null,
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -136,7 +159,8 @@ describe('run function', () => {
         'workflow-id': 'wf_1',
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -169,7 +193,8 @@ describe('run function', () => {
         'workflow-id': null,
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -203,7 +228,8 @@ describe('run function', () => {
         'workflow-id': 'wf_123',
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -233,7 +259,8 @@ describe('run function', () => {
         'workflow-id': null,
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -256,7 +283,8 @@ describe('run function', () => {
         'workflow-id': null,
         retries: '0',
         'build-version-id': null,
-        timeout: '5'
+        timeout: '5',
+        'no-wait': ''
       }
       return map[name]
     })
@@ -269,6 +297,77 @@ describe('run function', () => {
     expect(core.setFailed).toHaveBeenCalledWith(
       'Failed to queue test: task_id missing in API response'
     )
+  })
+
+  it('waits for start then exits in no-wait mode for tests', async () => {
+    process.env['REVYL_API_KEY'] = 'test-token'
+    const taskId = 'task_nowait_123'
+    global.__MOCK_TASK_ID__ = taskId
+    global.__MOCK_EVENT__ = 'test_started'
+
+    core.getInput.mockImplementation(name => {
+      const map = {
+        'test-id': 'test_123',
+        'workflow-id': null,
+        retries: '0',
+        'build-version-id': null,
+        timeout: '5',
+        'no-wait': 'true'
+      }
+      return map[name]
+    })
+
+    mockHttpClient.postJson.mockResolvedValue({
+      statusCode: 200,
+      result: { task_id: taskId }
+    })
+
+    const main = require('../src/main')
+    await main.run()
+
+    // Should queue the test and set outputs
+    expect(mockHttpClient.postJson).toHaveBeenCalledWith(
+      'https://device.revyl.ai/api/execute_test_id_async',
+      expect.any(Object)
+    )
+    expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
+    expect(core.setOutput).toHaveBeenCalledWith('success', 'true')
+    expect(core.setFailed).not.toHaveBeenCalled()
+  })
+
+  it('waits for start then exits in no-wait mode for workflows', async () => {
+    process.env['REVYL_API_KEY'] = 'test-token'
+    const taskId = 'task_wf_nowait_123'
+    global.__MOCK_TASK_ID__ = taskId
+    global.__MOCK_EVENT__ = 'workflow_started'
+
+    core.getInput.mockImplementation(name => {
+      const map = {
+        'test-id': null,
+        'workflow-id': 'wf_123',
+        retries: '0',
+        'build-version-id': null,
+        timeout: '5',
+        'no-wait': 'true'
+      }
+      return map[name]
+    })
+
+    mockHttpClient.postJson.mockResolvedValue({
+      statusCode: 200,
+      result: { task_id: taskId }
+    })
+
+    const main = require('../src/main')
+    await main.run()
+
+    expect(mockHttpClient.postJson).toHaveBeenCalledWith(
+      'https://device.revyl.ai/api/execute_workflow_id_async',
+      expect.any(Object)
+    )
+    expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
+    expect(core.setOutput).toHaveBeenCalledWith('success', 'true')
+    expect(core.setFailed).not.toHaveBeenCalled()
   })
 
   afterEach(() => {

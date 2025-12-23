@@ -15,11 +15,26 @@ inputs:
     required: false
     default: '3600'
   revyl-device-url:
-    description: 'Override device base URL (e.g., https://device-staging.revyl.ai)'
+    description:
+      'Override device base URL (e.g., https://device-staging.revyl.ai)'
     required: false
   backend-url:
-    description: 'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
+    description:
+      'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
     required: false
+  no-wait:
+    description:
+      'If true, launch the workflow and exit immediately after it starts without
+      waiting for completion. The action succeeds as long as the execution was
+      successfully queued.'
+    required: false
+    default: 'false'
+  start-timeout:
+    description:
+      'Timeout in seconds to wait for the workflow to start (only used with
+      no-wait mode). Default 60.'
+    required: false
+    default: '60'
 
 outputs:
   success:
@@ -59,5 +74,7 @@ runs:
         timeout: ${{ inputs.timeout }}
         backend-url: ${{ inputs.backend-url }}
         revyl-device-url: ${{ inputs.revyl-device-url }}
+        no-wait: ${{ inputs.no-wait }}
+        start-timeout: ${{ inputs.start-timeout }}
       env:
         REVYL_API_KEY: ${{ env.REVYL_API_KEY }}
