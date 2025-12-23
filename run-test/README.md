@@ -62,6 +62,21 @@ generation.
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
+### No-Wait Mode
+
+Launch tests without waiting for completion. The action succeeds immediately after
+the test is queued, only failing if there was an error starting the execution.
+
+```yaml
+- name: Launch Revyl Test (No-Wait)
+  uses: ./actions/run-test
+  with:
+    test-id: 'your-test-id'
+    no-wait: 'true'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
 ### Advanced Configuration
 
 ```yaml
@@ -89,6 +104,7 @@ generation.
 | `llm_model_name`   | LLM model to use                                          | No       |                                   |
 | `build-version-id` | Build version ID to use (overrides test's attached build) | No       |                                   |
 | `timeout`          | Maximum time to wait (seconds)                            | No       | `3600`                            |
+| `no-wait`          | Launch and exit immediately without waiting for completion | No       | `false`                           |
 
 \*Either `test-id` or `workflow-id` must be provided, but not both.
 

@@ -1,6 +1,6 @@
 const core = require('@actions/core')
 const httpm = require('@actions/http-client')
-const { monitorTaskViaSSE } = require('./monitor')
+const { monitorTaskViaSSE, waitForStart } = require('./monitor')
 
 /**
  * The main function for the action.
@@ -21,6 +21,12 @@ async function run() {
       core.getInput('build-version-id', { required: false }) || null
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '3600',
+      10
+    )
+    const noWait =
+      core.getInput('no-wait', { required: false }).toLowerCase() === 'true'
+    const startTimeoutSeconds = parseInt(
+      core.getInput('start-timeout', { required: false }) || '60',
       10
     )
 
@@ -65,9 +71,13 @@ async function run() {
       core.info(`📦 Build Version ID: ${buildVersionId}`)
     }
     core.info(`🌐 Execution URL: ${initUrl}`)
-    core.info(
-      `⏱️  Timeout: ${timeoutSeconds}s (${Math.round(timeoutSeconds / 60)} minutes)`
-    )
+    if (noWait) {
+      core.info(`⏩ No-Wait Mode: ENABLED (will not wait for completion)`)
+    } else {
+      core.info(
+        `⏱️  Timeout: ${timeoutSeconds}s (${Math.round(timeoutSeconds / 60)} minutes)`
+      )
+    }
     core.endGroup()
 
     // Construct the body based on whether we're running a test or workflow
@@ -101,6 +111,55 @@ async function run() {
 
     core.startGroup(`📡 Task Queued Successfully`)
     core.info(`🆔 Task ID: ${taskId}`)
+
+    // No-wait mode: wait for execution to start, show reports, then exit
+    if (noWait) {
+      core.info(
+        `⏩ No-Wait Mode: Waiting for execution to start (timeout: ${startTimeoutSeconds}s)...`
+      )
+      core.endGroup()
+
+      // Wait for the execution to actually start
+      const startResult = await waitForStart(
+        taskId,
+        testId,
+        workflowId,
+        statusBaseUrl,
+        startTimeoutSeconds
+      )
+
+      // FAIL if we timed out waiting for the execution to start
+      if (startResult.timedOut && !startResult.completed) {
+        throw new Error(
+          `Timeout waiting for ${testId ? 'test' : 'workflow'} to start after ${startTimeoutSeconds}s. ` +
+            `The task was queued (task_id: ${taskId}) but never started. ` +
+            `This may indicate an invalid ${testId ? 'test' : 'workflow'} ID or a scheduling issue.`
+        )
+      }
+
+      // Output format matches regular monitoring (workflow header already printed by waitForStart)
+      if (testId) {
+        const reportUrl = `https://app.revyl.ai/tests/report?taskId=${taskId}`
+        core.info(`  🧪 ${startResult.testName || testId}`)
+        core.info(`     📋 Report: ${reportUrl}`)
+        core.setOutput('report_link', reportUrl)
+      }
+
+      if (workflowId) {
+        // Child test reports already printed by waitForStart, just set the output
+        if (startResult.childTests && startResult.childTests.length > 0) {
+          core.setOutput('report_link', startResult.childTests[0].reportUrl)
+        }
+      }
+
+      core.info(``)
+      core.notice(
+        `✅ ${testId ? 'Test' : 'Workflow'} execution started successfully (no-wait mode)`
+      )
+      core.setOutput('success', 'true')
+      return true
+    }
+
     core.info(`🔄 Starting real-time SSE monitoring...`)
     core.endGroup()
 

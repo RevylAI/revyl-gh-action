@@ -14,6 +14,21 @@ A dedicated entrypoint for executing a Revyl workflow by `workflow-id`, with rea
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
+### No-Wait Mode
+
+Launch workflows without waiting for completion. The action succeeds immediately
+after the workflow is queued, only failing if there was an error starting the execution.
+
+```yaml
+- name: Launch Revyl Workflow (No-Wait)
+  uses: RevylAI/revyl-gh-action/run-workflow@v1
+  with:
+    workflow-id: 'your-workflow-id'
+    no-wait: 'true'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
 ### Scheduled monitoring example
 
 ```yaml
@@ -40,11 +55,12 @@ jobs:
 
 ## Inputs
 
-| Input         | Required | Description                                        | Default |
-| ------------- | -------- | -------------------------------------------------- | ------- |
-| `workflow-id` | Yes      | The workflow id to run                             |         |
-| `retries`     | No       | Number of retries for failed tests in the workflow | `1`     |
-| `timeout`     | No       | Timeout in seconds for workflow execution          | `3600`  |
+| Input             | Required | Description                                              | Default |
+| ----------------- | -------- | -------------------------------------------------------- | ------- |
+| `workflow-id`     | Yes      | The workflow id to run                                   |         |
+| `retries`         | No       | Number of retries for failed tests in the workflow       | `1`     |
+| `timeout`         | No       | Timeout in seconds for workflow execution                | `3600`  |
+| `no-wait`         | No       | Launch and exit immediately without waiting for completion | `false` |
 
 ## Outputs
 
