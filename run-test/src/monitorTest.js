@@ -55,7 +55,7 @@ async function monitorTest(
 
     eventSource.onopen = () => {
       core.info(
-        '🔗 SSE connection established - monitoring test execution in real-time'
+        'Connection established - monitoring test execution in real-time'
       )
     }
 
@@ -81,7 +81,7 @@ async function monitorTest(
     eventSource.addEventListener('connection_ready', event => {
       const data = safeParseEventData(event, 'connection_ready')
       if (data) {
-        core.info(`🏢 Connected to organization: ${data.org_id}`)
+        core.info(`Connected to organization: ${data.org_id}`)
       }
     })
 
@@ -111,7 +111,7 @@ async function monitorTest(
         logProgress(testData, testId, null)
       } else {
         core.info(
-          `📡 Connected to unified stream - waiting for test ${testId} (task: ${taskId}) to start...`
+          `Connected - waiting for test ${testId} (task: ${taskId}) to start...`
         )
       }
     })
@@ -121,7 +121,7 @@ async function monitorTest(
       if (!data) return
 
       if (data.test && data.test.task_id === taskId) {
-        core.startGroup(`🚀 Test Started: ${data.test.test_name || testId}`)
+        core.startGroup(`Test Started: ${data.test.test_name || testId}`)
         logProgress(data.test, testId, null)
         core.endGroup()
       }
@@ -140,25 +140,25 @@ async function monitorTest(
       if (!data) return
 
       if (data.task_id === taskId) {
-        core.startGroup(`✅ Test Completed Successfully: ${data.test_name}`)
+        core.startGroup(`Test Completed Successfully: ${data.test_name}`)
         if (data.completed_test) {
-          core.info('🔗 Generating shareable report link...')
+          core.info('Generating shareable report link...')
           reportLink = await generateShareableReportLink(
             data.completed_test,
             backendBaseUrl
           )
           if (reportLink) {
-            core.notice(`📊 Test Report: ${reportLink}`, {
-              title: '✅ Test Completed Successfully',
+            core.notice(`Test Report: ${reportLink}`, {
+              title: 'Test Completed Successfully',
               file: 'test-execution'
             })
             core.setOutput('report_link', reportLink)
             core.summary
-              .addHeading('Test Execution Completed 🎉 ', 2)
+              .addHeading('Test Execution Completed', 2)
               .addRaw(
                 `
 **Test Name:** \`${data.test_name}\`
-**Status:** ✅ Success
+**Status:** Success
 **Report:** [View Detailed Report](${reportLink})
 
 The test has completed successfully! Click the report link above to view detailed execution logs, screenshots, and performance metrics.
@@ -166,7 +166,7 @@ The test has completed successfully! Click the report link above to view detaile
               )
               .write()
           } else {
-            core.warning('⚠️  Could not generate shareable report link')
+            core.warning('Could not generate shareable report link')
           }
           setOutputsFromCompletedTest(data.completed_test, testId, null)
         }
@@ -183,42 +183,42 @@ The test has completed successfully! Click the report link above to view detaile
       if (!data) return
 
       if (data.task_id === taskId) {
-        core.startGroup(`❌ Test Failed: ${data.test_name}`)
+        core.startGroup(`Test Failed: ${data.test_name}`)
         if (data.failed_test) {
-          core.info('🔗 Generating shareable report link for failed test...')
+          core.info('Generating shareable report link for failed test...')
           reportLink = await generateShareableReportLink(
             data.failed_test,
             backendBaseUrl
           )
           if (reportLink) {
-            core.error(`❌ Test Failed: ${data.test_name}`, {
+            core.error(`Test Failed: ${data.test_name}`, {
               title: 'Test Execution Failed',
               file: 'test-execution'
             })
-            core.notice(`📊 Failure Report: ${reportLink}`, {
-              title: '🔍 Debug Information Available'
+            core.notice(`Failure Report: ${reportLink}`, {
+              title: 'Debug Information Available'
             })
             core.setOutput('report_link', reportLink)
             core.summary
-              .addHeading('Test Execution Failed ❌', 2)
+              .addHeading('Test Execution Failed', 2)
               .addRaw(
                 `
 **Test ID:** \`${data.test_name}\`
-**Status:** ❌ Failed
+**Status:** Failed
 **Report:** [View Failure Analysis](${reportLink})
 
 The test execution failed. The detailed report contains:
-- 📸 Screenshots at failure point
-- 📋 Execution logs and error details  
-- 🔍 Step-by-step execution trace
-- 💡 Suggested debugging steps
+- Screenshots at failure point
+- Execution logs and error details
+- Step-by-step execution trace
+- Suggested debugging steps
 
 Click the report link above to investigate the failure.
               `
               )
               .write()
           } else {
-            core.warning('⚠️  Could not generate shareable report link')
+            core.warning('Could not generate shareable report link')
           }
           setOutputsFromCompletedTest(data.failed_test, testId, null)
         }
@@ -235,7 +235,7 @@ Click the report link above to investigate the failure.
       if (!data) return
 
       if (data.task_id === taskId) {
-        console.log(`✅ Test completed: ${data.test_name}`)
+        console.log(`Test completed: ${data.test_name}`)
         finalStatus = 'completed'
         eventSource.close()
         clearTimeout(timeoutHandle)
@@ -248,7 +248,7 @@ Click the report link above to investigate the failure.
       if (!data) return
 
       if (data.task_id === taskId) {
-        console.log(`❌ Test failed: ${data.test_name}`)
+        console.log(`Test failed: ${data.test_name}`)
         finalStatus = 'failed'
         eventSource.close()
         clearTimeout(timeoutHandle)
@@ -261,7 +261,7 @@ Click the report link above to investigate the failure.
       if (!data) return
 
       if (data.task_id === taskId) {
-        console.log(`🚫 Test cancelled: ${data.test_name}`)
+        console.log(`Test cancelled: ${data.test_name}`)
         finalStatus = 'cancelled'
         eventSource.close()
         clearTimeout(timeoutHandle)

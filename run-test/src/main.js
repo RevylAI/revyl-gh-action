@@ -65,17 +65,17 @@ async function run() {
 
     const initUrl = `${executionBaseUrl}${initEndpoint}`
 
-    core.startGroup(`🚀 Starting ${testId ? 'Test' : 'Workflow'} Execution`)
-    core.info(`🎯 ${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
+    core.startGroup(`Starting ${testId ? 'Test' : 'Workflow'} Execution`)
+    core.info(`${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
     if (buildVersionId) {
-      core.info(`📦 Build Version ID: ${buildVersionId}`)
+      core.info(`Build Version ID: ${buildVersionId}`)
     }
-    core.info(`🌐 Execution URL: ${initUrl}`)
+    core.info(`Execution URL: ${initUrl}`)
     if (noWait) {
-      core.info(`⏩ No-Wait Mode: ENABLED (will not wait for completion)`)
+      core.info(`No-Wait Mode: ENABLED (will not wait for completion)`)
     } else {
       core.info(
-        `⏱️  Timeout: ${timeoutSeconds}s (${Math.round(timeoutSeconds / 60)} minutes)`
+        `Timeout: ${timeoutSeconds}s (${Math.round(timeoutSeconds / 60)} minutes)`
       )
     }
     core.endGroup()
@@ -109,13 +109,13 @@ async function run() {
     const taskId = res.result.task_id
     core.setOutput('task_id', taskId)
 
-    core.startGroup(`📡 Task Queued Successfully`)
-    core.info(`🆔 Task ID: ${taskId}`)
+    core.startGroup(`Task Queued Successfully`)
+    core.info(`Task ID: ${taskId}`)
 
     // No-wait mode: wait for execution to start, show reports, then exit
     if (noWait) {
       core.info(
-        `⏩ No-Wait Mode: Waiting for execution to start (timeout: ${startTimeoutSeconds}s)...`
+        `No-Wait Mode: Waiting for execution to start (timeout: ${startTimeoutSeconds}s)...`
       )
       core.endGroup()
 
@@ -140,8 +140,8 @@ async function run() {
       // Output format matches regular monitoring (workflow header already printed by waitForStart)
       if (testId) {
         const reportUrl = `https://app.revyl.ai/tests/report?taskId=${taskId}`
-        core.info(`  🧪 ${startResult.testName || testId}`)
-        core.info(`     📋 Report: ${reportUrl}`)
+        core.info(`  ${startResult.testName || testId}`)
+        core.info(`     Report: ${reportUrl}`)
         core.setOutput('report_link', reportUrl)
       }
 
@@ -154,13 +154,13 @@ async function run() {
 
       core.info(``)
       core.notice(
-        `✅ ${testId ? 'Test' : 'Workflow'} execution started successfully (no-wait mode)`
+        `${testId ? 'Test' : 'Workflow'} execution started successfully (no-wait mode)`
       )
       core.setOutput('success', 'true')
       return true
     }
 
-    core.info(`🔄 Starting real-time SSE monitoring...`)
+    core.info(`Starting real-time monitoring...`)
     core.endGroup()
 
     // Use SSE (Server-Sent Events) for real-time monitoring instead of polling
@@ -183,24 +183,24 @@ async function run() {
 
     if (finalStatus === 'completed') {
       core.startGroup(
-        `🎉 ${testId ? 'Test' : 'Workflow'} Execution Completed Successfully!`
+        `${testId ? 'Test' : 'Workflow'} Execution Completed Successfully`
       )
-      core.notice(`✅ ${testId ? 'Test' : 'Workflow'} completed successfully`)
-      core.info(`🆔 Task ID: ${taskId}`)
-      // Report link will be shown in the SSE completion handler
+      core.notice(`${testId ? 'Test' : 'Workflow'} completed successfully`)
+      core.info(`Task ID: ${taskId}`)
+      // Report link will be shown in the completion handler
       core.endGroup()
       core.setOutput('success', 'true')
       return true
     }
 
     // Handle failure cases with detailed information
-    core.startGroup(`❌ ${testId ? 'Test' : 'Workflow'} Execution Failed`)
+    core.startGroup(`${testId ? 'Test' : 'Workflow'} Execution Failed`)
     core.setFailed(
       `${testId ? 'Test' : 'Workflow'} finished with status: ${finalStatus}`
     )
-    core.info(`🆔 Task ID: ${taskId}`)
+    core.info(`Task ID: ${taskId}`)
 
-    // Error details and report links will be shown in the SSE failure handler
+    // Error details and report links will be shown in the failure handler
     core.notice(
       `Check the detailed logs above for error information and report links`
     )

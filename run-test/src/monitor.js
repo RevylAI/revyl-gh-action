@@ -74,7 +74,7 @@ async function waitForStart(
 
     eventSource.onopen = () => {
       core.info(
-        '🔗 SSE connection established - waiting for execution to start...'
+        'Connection established - waiting for execution to start...'
       )
     }
 
@@ -98,7 +98,7 @@ async function waitForStart(
           const runningTests = data.running_tests || []
           const ourTest = runningTests.find(t => t.task_id === taskId)
           if (ourTest) {
-            core.info(`✅ Test already running: ${ourTest.test_name || testId}`)
+            core.info(`Test already running: ${ourTest.test_name || testId}`)
             eventSource.close()
             clearTimeout(timeoutHandle)
             resolve({ started: true, testName: ourTest.test_name, childTests })
@@ -113,7 +113,7 @@ async function waitForStart(
           )
           if (ourWorkflow) {
             core.info(
-              `✅ Workflow already running: ${ourWorkflow.workflow_name || workflowId}`
+              `Workflow already running: ${ourWorkflow.workflow_name || workflowId}`
             )
             // Collect any child tests
             const runningTests = data.running_tests || []
@@ -168,8 +168,8 @@ async function waitForStart(
           })
 
           // Print in same format as regular monitoring
-          core.info(`  🧪 ${test.test_name}`)
-          core.info(`     📋 Report: ${reportUrl}`)
+          core.info(`  ${test.test_name}`)
+          core.info(`     Report: ${reportUrl}`)
 
           // Exit once ALL tests have started (or if we don't know total, exit after first)
           const totalTests = workflowInfo?.totalTests || 1
@@ -205,7 +205,7 @@ async function waitForStart(
             totalTests: wf.task.total_tests
           }
           core.info(
-            `🚀 ${wf.workflow_name || workflowId} (${wf.task.total_tests || '?'} tests)`
+            `${wf.workflow_name || workflowId} (${wf.task.total_tests || '?'} tests)`
           )
           core.info(``)
         }
@@ -228,7 +228,7 @@ async function waitForStart(
         try {
           const data = JSON.parse(event.data)
           if (data.task_id === taskId) {
-            core.info(`⚡ Execution completed quickly`)
+            core.info(`Execution completed quickly`)
             eventSource.close()
             clearTimeout(timeoutHandle)
             resolve({ started: true, completed: true, childTests })

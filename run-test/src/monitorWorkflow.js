@@ -183,7 +183,7 @@ async function monitorWorkflow(
 
       eventSource.onopen = () => {
         core.info('')
-        core.info('🔗 SSE connection established')
+        core.info('Connection established')
         // Reset reconnection attempts on successful connection
         reconnectAttempts = 0
       }
@@ -254,7 +254,7 @@ async function monitorWorkflow(
         }
 
         const delay = calculateBackoffDelay(reconnectAttempts - 1)
-        core.info(`⏳ Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`)
+        core.info(`Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`)
 
         reconnectTimeoutHandle = setTimeout(() => {
           createConnection()
@@ -283,8 +283,11 @@ async function monitorWorkflow(
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
             const totalTests = ourWorkflow.task.total_tests || '?'
-            core.info(`🚀 ${ourWorkflow.workflow_name} (${totalTests} tests)`)
+            const workflowReportUrl = `${DASHBOARD_BASE_URL}/workflow/report?taskId=${taskId}`
+            core.info(`${ourWorkflow.workflow_name} (${totalTests} tests)`)
+            core.info(`Report: ${workflowReportUrl}`)
             core.info('')
+            core.setOutput('report_link', workflowReportUrl)
           }
 
           // Set initial outputs
@@ -316,7 +319,7 @@ async function monitorWorkflow(
                   cleanup()
                   resolve('failed')
                 } else if (status === 'cancelled') {
-                  core.warning('⚠️ Workflow cancelled')
+                  core.warning('Workflow cancelled')
                   setFinalOutputs(results, 'cancelled', false)
                   finalStatus = 'cancelled'
                   clearTimeout(connectionTimeout)
@@ -347,8 +350,11 @@ async function monitorWorkflow(
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
             const totalTests = wf.task.total_tests || '?'
-            core.info(`🚀 ${wf.workflow_name} (${totalTests} tests)`)
+            const workflowReportUrl = `${DASHBOARD_BASE_URL}/workflow/report?taskId=${taskId}`
+            core.info(`${wf.workflow_name} (${totalTests} tests)`)
+            core.info(`Report: ${workflowReportUrl}`)
             core.info('')
+            core.setOutput('report_link', workflowReportUrl)
           }
 
           core.setOutput('status', wf.task.status)
@@ -438,7 +444,7 @@ async function monitorWorkflow(
         if (!data) return
 
         if (data.task_id === taskId) {
-          core.warning(`⚠️ Workflow cancelled`)
+          core.warning(`Workflow cancelled`)
 
           finalStatus = 'cancelled'
           core.setOutput('success', 'false')
@@ -463,15 +469,10 @@ async function monitorWorkflow(
         if (test && test.parent_workflow_task_id === taskId) {
           const testTaskId = test.task_id
 
-          // Only log test info once (prevent duplicates from reconnection)
+          // Track test internally (prevent duplicates from reconnection)
           if (!activeTests.has(testTaskId)) {
             const testName = test.test_name || 'Unknown Test'
-            const reportUrl = `${DASHBOARD_BASE_URL}/tests/report?taskId=${testTaskId}`
-
             activeTests.set(testTaskId, { name: testName, startTime: Date.now() })
-
-            core.info(`  🧪 ${testName}`)
-            core.info(`     📋 Report: ${reportUrl}`)
           }
         }
       })
@@ -502,8 +503,8 @@ async function monitorWorkflow(
 
         const testTaskId = data.task_id
         if (activeTests.has(testTaskId)) {
-          core.warning(`     ⚠️ cancelled`)
-          core.info('')
+          const testInfo = activeTests.get(testTaskId)
+          core.warning(`  ${testInfo.name} - cancelled`)
           activeTests.delete(testTaskId)
         }
       })
@@ -522,12 +523,11 @@ async function monitorWorkflow(
 
           if (passed) {
             testsPassed++
-            core.info(`     ✅ passed (${duration}s)`)
+            core.info(`  ${testInfo.name} - passed (${duration}s)`)
           } else {
             testsFailed++
-            core.info(`     ❌ failed (${duration}s)`)
+            core.info(`  ${testInfo.name} - failed (${duration}s)`)
           }
-          core.info('')
 
           activeTests.delete(testTaskId)
         }
