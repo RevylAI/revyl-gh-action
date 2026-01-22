@@ -9,21 +9,8 @@ const core = require('@actions/core')
 function logProgress(taskInfo, testId, workflowId) {
   const currentStatus = taskInfo.status
 
-  const statusEmojis = {
-    queued: '⏳',
-    running: '🏃',
-    setup: '🔧',
-    executing: '⚡',
-    teardown: '🧹',
-    completed: '✅',
-    failed: '❌',
-    cancelled: '🚫'
-  }
-
-  const statusEmoji = statusEmojis[currentStatus] || statusEmojis[taskInfo.phase] || '📊'
-
   if (testId) {
-    let message = `${statusEmoji} Status: ${currentStatus.toUpperCase()}`
+    let message = `Status: ${currentStatus.toUpperCase()}`
 
     if (taskInfo.phase && taskInfo.phase !== currentStatus) {
       message += ` | Phase: ${taskInfo.phase}`
@@ -45,7 +32,7 @@ function logProgress(taskInfo, testId, workflowId) {
 
     core.info(message)
   } else if (workflowId) {
-    let message = `${statusEmoji} Workflow: ${currentStatus.toUpperCase()}`
+    let message = `Workflow: ${currentStatus.toUpperCase()}`
 
     if (taskInfo.current_test) {
       const testName = taskInfo.current_test_name || taskInfo.current_test
