@@ -29,6 +29,9 @@ async function run() {
       core.getInput('start-timeout', { required: false }) || '60',
       10
     )
+    const dashboardBaseUrl =
+      core.getInput('dashboard-url', { required: false }) ||
+      'https://app.revyl.ai'
 
     // Validate that either testId or workflowId is provided
     if (!testId && !workflowId) {
@@ -46,14 +49,13 @@ async function run() {
     })
 
     // Determine the base URL and endpoints (updated for async execution)
-    const deviceBaseUrl =
-      core.getInput('revyl-device-url', { required: false }) ||
-      'https://device.revyl.ai'
+    // Execution routes are now on the backend under /api/v1/execution
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
       'https://backend.revyl.ai'
-
-    const executionBaseUrl = deviceBaseUrl
+    
+    // Execution base URL: always use backend + /api/v1/execution
+    const executionBaseUrl = `${backendBaseUrl}/api/v1/execution`
     const statusBaseUrl = backendBaseUrl
 
     const initEndpoint = testId
@@ -125,7 +127,8 @@ async function run() {
         testId,
         workflowId,
         statusBaseUrl,
-        startTimeoutSeconds
+        startTimeoutSeconds,
+        dashboardBaseUrl
       )
 
       // FAIL if we timed out waiting for the execution to start
@@ -139,7 +142,7 @@ async function run() {
 
       // Output format matches regular monitoring (workflow header already printed by waitForStart)
       if (testId) {
-        const reportUrl = `https://app.revyl.ai/tests/report?taskId=${taskId}`
+        const reportUrl = `${dashboardBaseUrl}/tests/report?taskId=${taskId}`
         core.info(`  ${startResult.testName || testId}`)
         core.info(`     Report: ${reportUrl}`)
         core.setOutput('report_link', reportUrl)
@@ -170,7 +173,8 @@ async function run() {
       workflowId,
       statusBaseUrl,
       client,
-      timeoutSeconds
+      timeoutSeconds,
+      dashboardBaseUrl
     )
 
     const finalStatus = result?.status || result

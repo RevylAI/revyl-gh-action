@@ -29,6 +29,7 @@ function safeParseEventData(event, eventType) {
  * @param {string} backendBaseUrl - Backend base URL for SSE and report API
  * @param {object} client - HTTP client for additional requests
  * @param {number} timeoutSeconds - Maximum time to wait
+ * @param {string} dashboardBaseUrl - Dashboard base URL for report links
  * @returns {Promise<string|null>} Final status or null if timeout
  */
 async function monitorTest(
@@ -36,7 +37,8 @@ async function monitorTest(
   testId,
   backendBaseUrl,
   client,
-  timeoutSeconds
+  timeoutSeconds,
+  dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now()
@@ -145,7 +147,8 @@ async function monitorTest(
           core.info('Generating shareable report link...')
           reportLink = await generateShareableReportLink(
             data.completed_test,
-            backendBaseUrl
+            backendBaseUrl,
+            dashboardBaseUrl
           )
           if (reportLink) {
             core.notice(`Test Report: ${reportLink}`, {
@@ -188,7 +191,8 @@ The test has completed successfully! Click the report link above to view detaile
           core.info('Generating shareable report link for failed test...')
           reportLink = await generateShareableReportLink(
             data.failed_test,
-            backendBaseUrl
+            backendBaseUrl,
+            dashboardBaseUrl
           )
           if (reportLink) {
             core.error(`Test Failed: ${data.test_name}`, {

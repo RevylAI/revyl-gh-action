@@ -116,7 +116,6 @@ inputs/outputs.
     workflow-id: 'your-workflow-id'
     timeout: '3600'
     backend-url: 'https://backend-staging.revyl.ai'
-    revyl-device-url: 'https://device-staging.revyl.ai'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 

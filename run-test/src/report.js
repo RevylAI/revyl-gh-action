@@ -4,9 +4,10 @@ const fetch = require('node-fetch')
  * Generate a shareable report link from completed test data
  * @param {object} completedTestData - Completed test payload
  * @param {string} backendBaseUrl - Backend base URL to use
+ * @param {string} dashboardBaseUrl - Dashboard base URL for report origin
  * @returns {Promise<string|null>} Shareable link or null
  */
-async function generateShareableReportLink(completedTestData, backendBaseUrl) {
+async function generateShareableReportLink(completedTestData, backendBaseUrl, dashboardBaseUrl = 'https://app.revyl.ai') {
   try {
     let testId = null
     let historyId = null
@@ -49,7 +50,7 @@ async function generateShareableReportLink(completedTestData, backendBaseUrl) {
       body: JSON.stringify({
         test_id: testId,
         history_id: historyId,
-        origin: 'https://app.revyl.ai'
+        origin: dashboardBaseUrl
       })
     })
 

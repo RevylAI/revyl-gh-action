@@ -7,11 +7,6 @@ on:
         description: 'Revyl workflow id'
         required: true
         default: '6e53b753-6031-4ce4-9ff1-88963c267329'
-      device_url:
-        description:
-          'Override device base URL (e.g., https://device-staging.revyl.ai)'
-        required: false
-        default: ''
       backend_url:
         description:
           'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
@@ -44,7 +39,6 @@ jobs:
         with:
           workflow-id: ${{ inputs.workflow_id }}
           timeout: '3600'
-          revyl-device-url: ${{ inputs.device_url }}
           backend-url: ${{ inputs.backend_url }}
 
       - name: Output results

@@ -6,9 +6,6 @@ const MAX_RECONNECT_ATTEMPTS = 10
 const MAX_BACKOFF_MS = 30000 // 30 seconds
 const INITIAL_BACKOFF_MS = 1000 // 1 second
 
-// Dashboard URL for test reports
-const DASHBOARD_BASE_URL = 'https://app.revyl.ai'
-
 /**
  * Calculate exponential backoff delay
  * @param {number} attempts - Number of reconnection attempts
@@ -90,6 +87,7 @@ async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
  * @param {string} backendBaseUrl - Backend base URL for SSE
  * @param {object} client - HTTP client for additional requests
  * @param {number} timeoutSeconds - Maximum time to wait
+ * @param {string} dashboardBaseUrl - Dashboard base URL for report links
  * @returns {Promise<string|null>} Final status or null if timeout
  */
 async function monitorWorkflow(
@@ -97,7 +95,8 @@ async function monitorWorkflow(
   workflowId,
   backendBaseUrl,
   client,
-  timeoutSeconds
+  timeoutSeconds,
+  dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   return new Promise((resolve, reject) => {
     // State tracking for reconnection
@@ -283,7 +282,7 @@ async function monitorWorkflow(
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
             const totalTests = ourWorkflow.task.total_tests || '?'
-            const workflowReportUrl = `${DASHBOARD_BASE_URL}/workflow/report?taskId=${taskId}`
+            const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${ourWorkflow.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
             core.info('')
@@ -350,7 +349,7 @@ async function monitorWorkflow(
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
             const totalTests = wf.task.total_tests || '?'
-            const workflowReportUrl = `${DASHBOARD_BASE_URL}/workflow/report?taskId=${taskId}`
+            const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${wf.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
             core.info('')

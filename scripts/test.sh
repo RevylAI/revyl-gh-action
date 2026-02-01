@@ -2,7 +2,7 @@
 
 # queue-workflow.sh
 # Purpose: Queue a workflow on Revyl and return the task ID
-# Usage: ./test.sh [--debug] [--device-url URL] <workflow_id>
+# Usage: ./test.sh [--debug] <workflow_id>
 # Example: ./test.sh 616ef7ae-eeae-4628-8db8-0fccea3df7c9
 # Example with debug: ./test.sh --debug 616ef7ae-eeae-4628-8db8-0fccea3df7c9
 # 
@@ -20,7 +20,6 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --debug              Enable debug mode with verbose logging"
-    echo "  --device-url URL     Override device base URL (default: https://device.revyl.ai)"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Arguments:"
@@ -31,6 +30,7 @@ show_help() {
     echo ""
     echo "Environment variables:"
     echo "  REVYL_API_KEY        API key for Revyl (required)"
+    echo "  BACKEND_BASE_URL     Override backend base URL (default: https://backend.revyl.ai)"
     exit 1
 }
 
@@ -40,10 +40,6 @@ while [[ $# -gt 0 ]]; do
         --debug)
             DEBUG_MODE=true
             shift
-            ;;
-        --device-url)
-            DEVICE_BASE_URL="$2"
-            shift 2
             ;;
         -h|--help)
             show_help
@@ -80,7 +76,9 @@ debug_log "Debug mode enabled"
 debug_log "Workflow ID: $WORKFLOW_ID"
 
 # Constants
-REVYL_EXECUTE_API_HOST="${DEVICE_BASE_URL:-https://device.revyl.ai}"
+# Execution routes are on the backend under /api/v1/execution
+BACKEND_BASE_URL="${BACKEND_BASE_URL:-https://backend.revyl.ai}"
+REVYL_EXECUTE_API_HOST="${BACKEND_BASE_URL}/api/v1/execution"
 
 # Execute the workflow asynchronously
 debug_log "Executing workflow ID: $WORKFLOW_ID"

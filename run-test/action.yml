@@ -22,10 +22,6 @@ inputs:
     description:
       'Timeout in seconds for the execution to complete. Default 3600.'
     required: false
-  revyl-device-url:
-    description:
-      'Override device base URL (e.g., https://device-staging.revyl.ai)'
-    required: false
   backend-url:
     description:
       'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
@@ -43,6 +39,12 @@ inputs:
       with no-wait mode). Default 60.'
     required: false
     default: '60'
+  dashboard-url:
+    description:
+      'Override dashboard base URL for report links (e.g., https://staging.revyl.ai).
+      Default: https://app.revyl.ai'
+    required: false
+    default: 'https://app.revyl.ai'
 
 # Define your outputs here.
 outputs:

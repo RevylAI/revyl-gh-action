@@ -208,7 +208,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.revyl.ai/api/execute_test_id_async',
+      'https://backend.revyl.ai/api/v1/execution/api/execute_test_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
@@ -243,7 +243,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.revyl.ai/api/execute_workflow_id_async',
+      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
@@ -327,7 +327,7 @@ describe('run function', () => {
 
     // Should queue the test and set outputs
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.revyl.ai/api/execute_test_id_async',
+      'https://backend.revyl.ai/api/v1/execution/api/execute_test_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
@@ -362,7 +362,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://device.revyl.ai/api/execute_workflow_id_async',
+      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)

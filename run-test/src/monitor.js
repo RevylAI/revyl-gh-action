@@ -3,9 +3,6 @@ const EventSource = require('eventsource')
 const { monitorTest } = require('./monitorTest')
 const { monitorWorkflow } = require('./monitorWorkflow')
 
-// Dashboard URL for reports
-const DASHBOARD_BASE_URL = 'https://app.revyl.ai'
-
 /**
  * Monitor task execution via SSE (dispatcher)
  * @param {string} taskId - The task ID to monitor
@@ -14,6 +11,7 @@ const DASHBOARD_BASE_URL = 'https://app.revyl.ai'
  * @param {string} backendBaseUrl - Backend base URL for SSE and report API
  * @param {object} client - HTTP client for additional requests
  * @param {number} timeoutSeconds - Maximum time to wait
+ * @param {string} dashboardBaseUrl - Dashboard base URL for report links
  * @returns {Promise<string|null>} Final status or null if timeout
  */
 async function monitorTaskViaSSE(
@@ -22,17 +20,19 @@ async function monitorTaskViaSSE(
   workflowId,
   backendBaseUrl,
   client,
-  timeoutSeconds
+  timeoutSeconds,
+  dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   if (testId)
-    return monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds)
+    return monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds, dashboardBaseUrl)
   if (workflowId)
     return monitorWorkflow(
       taskId,
       workflowId,
       backendBaseUrl,
       client,
-      timeoutSeconds
+      timeoutSeconds,
+      dashboardBaseUrl
     )
   return null
 }
@@ -45,6 +45,7 @@ async function monitorTaskViaSSE(
  * @param {string|null} workflowId - Workflow ID if waiting for a workflow
  * @param {string} backendBaseUrl - Backend base URL for SSE
  * @param {number} timeoutSeconds - Maximum time to wait for start (default 120s)
+ * @param {string} dashboardBaseUrl - Dashboard base URL for report links
  * @returns {Promise<object>} Object with started status and any child test info
  */
 async function waitForStart(
@@ -52,7 +53,8 @@ async function waitForStart(
   testId,
   workflowId,
   backendBaseUrl,
-  timeoutSeconds = 120
+  timeoutSeconds = 120,
+  dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   return new Promise((resolve, reject) => {
     const sseUrl = `${backendBaseUrl}/api/v1/monitor/stream/unified`
@@ -122,7 +124,7 @@ async function waitForStart(
                 childTests.push({
                   taskId: t.task_id,
                   testName: t.test_name,
-                  reportUrl: `${DASHBOARD_BASE_URL}/tests/report?taskId=${t.task_id}`
+                  reportUrl: `${dashboardBaseUrl}/tests/report?taskId=${t.task_id}`
                 })
               }
             })
@@ -160,7 +162,7 @@ async function waitForStart(
 
         // Child test of workflow - collect all tests before exiting
         if (workflowId && test && test.parent_workflow_task_id === taskId) {
-          const reportUrl = `${DASHBOARD_BASE_URL}/tests/report?taskId=${test.task_id}`
+          const reportUrl = `${dashboardBaseUrl}/tests/report?taskId=${test.task_id}`
           childTests.push({
             taskId: test.task_id,
             testName: test.test_name,

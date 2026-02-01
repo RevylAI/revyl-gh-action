@@ -20,7 +20,6 @@ generation.
   uses: ./actions/run-test
   with:
     test-id: 'your-test-id'
-    revyl-device-url: 'https://device-staging.revyl.ai'
     timeout: '1800' # 30 minutes
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -33,7 +32,6 @@ generation.
   uses: ./actions/run-test
   with:
     workflow-id: 'your-workflow-id'
-    revyl-device-url: 'https://device-staging.revyl.ai'
     timeout: '3600' # 1 hour
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -84,7 +82,6 @@ the test is queued, only failing if there was an error starting the execution.
   uses: ./actions/run-test
   with:
     test-id: 'your-test-id'
-    revyl-device-url: 'https://device-staging.revyl.ai'
     retries: '2'
     build-version-id: 'specific-build-version-id'
     llm_model_name: 'gpt-4o'
@@ -99,7 +96,6 @@ the test is queued, only failing if there was an error starting the execution.
 | ------------------ | --------------------------------------------------------- | -------- | --------------------------------- |
 | `test-id`          | ID of the test to run                                     | No\*     |                                   |
 | `workflow-id`      | ID of the workflow to run                                 | No\*     |                                   |
-| `revyl-device-url` | Revyl device service URL                                  | No       | `https://device-staging.revyl.ai` |
 | `retries`          | Number of retries for failed tests                        | No       | `1`                               |
 | `llm_model_name`   | LLM model to use                                          | No       |                                   |
 | `build-version-id` | Build version ID to use (overrides test's attached build) | No       |                                   |

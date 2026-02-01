@@ -14,10 +14,6 @@ inputs:
     description: 'Timeout in seconds for the workflow execution. Default 3600.'
     required: false
     default: '3600'
-  revyl-device-url:
-    description:
-      'Override device base URL (e.g., https://device-staging.revyl.ai)'
-    required: false
   backend-url:
     description:
       'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
@@ -73,7 +69,6 @@ runs:
         retries: ${{ inputs.retries }}
         timeout: ${{ inputs.timeout }}
         backend-url: ${{ inputs.backend-url }}
-        revyl-device-url: ${{ inputs.revyl-device-url }}
         no-wait: ${{ inputs.no-wait }}
         start-timeout: ${{ inputs.start-timeout }}
       env:
