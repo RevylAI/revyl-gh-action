@@ -14,7 +14,7 @@ act workflow_dispatch -W .github/workflows/revyl-workflow-act.yml \
   --input workflow_id=6e53b753-6031-4ce4-9ff1-88963c267329
 ```
 
-#### Reference workflow (already added)
+#### Reference workflow
 
 ```yaml
 name: Revyl Workflow (act)
