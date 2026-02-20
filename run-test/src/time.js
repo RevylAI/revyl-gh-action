@@ -16,5 +16,3 @@ function formatDuration(seconds) {
 }
 
 module.exports = { formatDuration }
-
-

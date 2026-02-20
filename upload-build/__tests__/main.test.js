@@ -136,7 +136,7 @@ describe('Upload Build Action', () => {
     await run()
 
     expect(mockPostJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/builds/vars/test-build-var-id/versions/from-url',
+      'https://backend.revyl.ai/api/v1/builds/apps/test-build-var-id/builds/from-url',
       {
         version: '1.0.0',
         from_url: 'https://expo.dev/build/123',
@@ -196,7 +196,7 @@ describe('Upload Build Action', () => {
 
     expect(fs.existsSync).toHaveBeenCalledWith('/path/to/file.apk')
     expect(mockGetJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/builds/vars/test-build-var-id/versions/upload-url?version=1.0.0&file_name=file.apk'
+      'https://backend.revyl.ai/api/v1/builds/apps/test-build-var-id/builds/upload-url?version=1.0.0&file_name=file.apk'
     )
     expect(mockSendStream).toHaveBeenCalledWith(
       'PUT',

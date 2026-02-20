@@ -40,7 +40,9 @@ function logProgress(taskInfo, testId, workflowId) {
     }
 
     if (taskInfo.completed_tests !== undefined && taskInfo.total_tests) {
-      const percentage = Math.round((taskInfo.completed_tests / taskInfo.total_tests) * 100)
+      const percentage = Math.round(
+        (taskInfo.completed_tests / taskInfo.total_tests) * 100
+      )
       message += ` | Tests: ${taskInfo.completed_tests}/${taskInfo.total_tests} (${percentage}%)`
     }
 
@@ -49,5 +51,3 @@ function logProgress(taskInfo, testId, workflowId) {
 }
 
 module.exports = { logProgress }
-
-

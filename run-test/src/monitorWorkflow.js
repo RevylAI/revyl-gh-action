@@ -67,8 +67,8 @@ async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
       return {
         status: task.status,
         success: task.success,
-        total_tests: task.total_tests || 0,
-        completed_tests: task.completed_tests || 0,
+        total_tests: task.total_tests ?? 0,
+        completed_tests: task.completed_tests ?? 0,
         passed_tests,
         failed_tests,
         tests: task.tests || []
@@ -161,9 +161,10 @@ async function monitorWorkflow(
         return
       }
 
-      const attemptInfo = reconnectAttempts > 0
-        ? ` (reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
-        : ''
+      const attemptInfo =
+        reconnectAttempts > 0
+          ? ` (reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+          : ''
       core.debug(`Connecting to SSE stream${attemptInfo}...`)
 
       const eventSource = new EventSource(sseUrl, {
@@ -210,7 +211,9 @@ async function monitorWorkflow(
         reconnectAttempts++
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          core.error(`Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`)
+          core.error(
+            `Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
+          )
           clearTimeout(connectionTimeout)
           cleanup()
 
@@ -234,7 +237,11 @@ async function monitorWorkflow(
                   resolve(null)
                 }
               } else {
-                reject(new Error('SSE connection failed and could not fetch final status'))
+                reject(
+                  new Error(
+                    'SSE connection failed and could not fetch final status'
+                  )
+                )
               }
             })
             .catch(err => {
@@ -253,7 +260,9 @@ async function monitorWorkflow(
         }
 
         const delay = calculateBackoffDelay(reconnectAttempts - 1)
-        core.info(`Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`)
+        core.info(
+          `Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+        )
 
         reconnectTimeoutHandle = setTimeout(() => {
           createConnection()
@@ -281,7 +290,7 @@ async function monitorWorkflow(
           // Only log workflow header once
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
-            const totalTests = ourWorkflow.task.total_tests || '?'
+            const totalTests = ourWorkflow.task.total_tests ?? '?'
             const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${ourWorkflow.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
@@ -291,11 +300,19 @@ async function monitorWorkflow(
 
           // Set initial outputs
           core.setOutput('status', ourWorkflow.task.status)
-          core.setOutput('total_tests', (ourWorkflow.task.total_tests || 0).toString())
-          core.setOutput('completed_tests', (ourWorkflow.task.completed_tests || 0).toString())
+          core.setOutput(
+            'total_tests',
+            (ourWorkflow.task.total_tests ?? 0).toString()
+          )
+          core.setOutput(
+            'completed_tests',
+            (ourWorkflow.task.completed_tests ?? 0).toString()
+          )
         } else if (workflowStarted) {
           // Workflow was previously seen but is no longer in running list
-          core.info('Workflow no longer in running list - checking final status...')
+          core.info(
+            'Workflow no longer in running list - checking final status...'
+          )
 
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
@@ -304,14 +321,26 @@ async function monitorWorkflow(
                 const totalTime = ((Date.now() - startTime) / 1000).toFixed(0)
 
                 if (['completed', 'success'].includes(status)) {
-                  logWorkflowSummary(true, results.workflow_name || workflowId, totalTime)
-                  setFinalOutputs(results, 'completed', results.success !== false)
+                  logWorkflowSummary(
+                    true,
+                    results.workflow_name || workflowId,
+                    totalTime
+                  )
+                  setFinalOutputs(
+                    results,
+                    'completed',
+                    results.success !== false
+                  )
                   finalStatus = 'completed'
                   clearTimeout(connectionTimeout)
                   cleanup()
                   resolve('completed')
                 } else if (['failed', 'error', 'timeout'].includes(status)) {
-                  logWorkflowSummary(false, results.workflow_name || workflowId, totalTime)
+                  logWorkflowSummary(
+                    false,
+                    results.workflow_name || workflowId,
+                    totalTime
+                  )
                   setFinalOutputs(results, 'failed', false)
                   finalStatus = 'failed'
                   clearTimeout(connectionTimeout)
@@ -328,7 +357,9 @@ async function monitorWorkflow(
               }
             })
             .catch(err => {
-              core.warning(`Could not fetch status after reconnection: ${err.message}`)
+              core.warning(
+                `Could not fetch status after reconnection: ${err.message}`
+              )
             })
         }
       })
@@ -348,7 +379,7 @@ async function monitorWorkflow(
           // Only log workflow header once
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
-            const totalTests = wf.task.total_tests || '?'
+            const totalTests = wf.task.total_tests ?? '?'
             const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${wf.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
@@ -382,13 +413,27 @@ async function monitorWorkflow(
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
               if (results) {
-                core.setOutput('total_tests', (results.total_tests || 0).toString())
-                core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-                core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-                core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+                core.setOutput(
+                  'total_tests',
+                  (results.total_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'completed_tests',
+                  (results.completed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'passed_tests',
+                  (results.passed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'failed_tests',
+                  (results.failed_tests ?? 0).toString()
+                )
               }
             })
-            .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+            .catch(err =>
+              core.warning(`Could not fetch final results: ${err.message}`)
+            )
 
           clearTimeout(connectionTimeout)
           cleanup()
@@ -414,10 +459,22 @@ async function monitorWorkflow(
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
               if (results) {
-                core.setOutput('total_tests', (results.total_tests || 0).toString())
-                core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-                core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-                core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+                core.setOutput(
+                  'total_tests',
+                  (results.total_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'completed_tests',
+                  (results.completed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'passed_tests',
+                  (results.passed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'failed_tests',
+                  (results.failed_tests ?? 0).toString()
+                )
 
                 // Check for failed tests
                 if (results.tests && Array.isArray(results.tests)) {
@@ -430,7 +487,9 @@ async function monitorWorkflow(
                 }
               }
             })
-            .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+            .catch(err =>
+              core.warning(`Could not fetch final results: ${err.message}`)
+            )
 
           clearTimeout(connectionTimeout)
           cleanup()
@@ -471,7 +530,10 @@ async function monitorWorkflow(
           // Track test internally (prevent duplicates from reconnection)
           if (!activeTests.has(testTaskId)) {
             const testName = test.test_name || 'Unknown Test'
-            activeTests.set(testTaskId, { name: testName, startTime: Date.now() })
+            activeTests.set(testTaskId, {
+              name: testName,
+              startTime: Date.now()
+            })
           }
         }
       })
@@ -569,10 +631,13 @@ async function monitorWorkflow(
       core.setOutput('success', success ? 'true' : 'false')
       core.setOutput('status', status)
       if (results) {
-        core.setOutput('total_tests', (results.total_tests || 0).toString())
-        core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-        core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-        core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+        core.setOutput('total_tests', (results.total_tests ?? 0).toString())
+        core.setOutput(
+          'completed_tests',
+          (results.completed_tests ?? 0).toString()
+        )
+        core.setOutput('passed_tests', (results.passed_tests ?? 0).toString())
+        core.setOutput('failed_tests', (results.failed_tests ?? 0).toString())
       }
     }
 

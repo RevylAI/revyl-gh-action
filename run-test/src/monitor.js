@@ -24,7 +24,14 @@ async function monitorTaskViaSSE(
   dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   if (testId)
-    return monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds, dashboardBaseUrl)
+    return monitorTest(
+      taskId,
+      testId,
+      backendBaseUrl,
+      client,
+      timeoutSeconds,
+      dashboardBaseUrl
+    )
   if (workflowId)
     return monitorWorkflow(
       taskId,
@@ -75,9 +82,7 @@ async function waitForStart(
     }, timeoutSeconds * 1000)
 
     eventSource.onopen = () => {
-      core.info(
-        'Connection established - waiting for execution to start...'
-      )
+      core.info('Connection established - waiting for execution to start...')
     }
 
     eventSource.onerror = error => {

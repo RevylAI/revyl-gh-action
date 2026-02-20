@@ -7,7 +7,11 @@ const fetch = require('node-fetch')
  * @param {string} dashboardBaseUrl - Dashboard base URL for report origin
  * @returns {Promise<string|null>} Shareable link or null
  */
-async function generateShareableReportLink(completedTestData, backendBaseUrl, dashboardBaseUrl = 'https://app.revyl.ai') {
+async function generateShareableReportLink(
+  completedTestData,
+  backendBaseUrl,
+  dashboardBaseUrl = 'https://app.revyl.ai'
+) {
   try {
     let testId = null
     let historyId = null

@@ -25662,8 +25662,23 @@ async function run() {
       throw Error('Missing REVYL_API_KEY - get API token from revyl settings')
     }
 
-    // Get inputs and validate
-    const buildVarId = core.getInput('build-var-id', { required: true })
+    // Get inputs and validate - support both new (app-id) and deprecated (build-var-id)
+    const appId = core.getInput('app-id', { required: false })
+    const buildVarId = core.getInput('build-var-id', { required: false })
+
+    // Use app-id if provided, fall back to build-var-id for backwards compatibility
+    const resolvedAppId = appId || buildVarId
+    if (!resolvedAppId) {
+      throw Error(
+        'app-id is required (or build-var-id for backwards compatibility)'
+      )
+    }
+
+    // Warn if using deprecated input
+    if (!appId && buildVarId) {
+      core.warning('build-var-id is deprecated. Please use app-id instead.')
+    }
+
     const version = core.getInput('version', { required: true })
     const filePath = core.getInput('file-path', { required: false })
     const expoUrl = core.getInput('expo-url', { required: false })
@@ -25776,7 +25791,7 @@ async function run() {
       // Handle Expo URL upload using the from-url endpoint
       core.info(`Uploading build from Expo URL: ${expoUrl}`)
 
-      const fromUrlEndpoint = `/api/v1/builds/vars/${buildVarId}/versions/from-url`
+      const fromUrlEndpoint = `/api/v1/builds/apps/${resolvedAppId}/builds/from-url`
       const fromUrlBody = {
         version: version,
         from_url: expoUrl,
@@ -25816,7 +25831,7 @@ async function run() {
       // if (!packageId) {
       try {
         core.info('Attempting to extract package ID from Expo build...')
-        const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
+        const extractEndpoint = `/api/v1/builds/builds/${versionId}/extract-package-id`
         const extractRes = await client.postJson(
           `${backendUrl}${extractEndpoint}`,
           {}
@@ -25844,7 +25859,7 @@ async function run() {
       }
 
       const fileName = path.basename(filePath)
-      const uploadUrlEndpoint = `/api/v1/builds/vars/${buildVarId}/versions/upload-url`
+      const uploadUrlEndpoint = `/api/v1/builds/apps/${resolvedAppId}/builds/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
         file_name: fileName
@@ -25909,7 +25924,7 @@ async function run() {
       // Extract package ID if possible
       try {
         core.info('Attempting to extract package ID...')
-        const extractEndpoint = `/api/v1/builds/versions/${versionId}/extract-package-id`
+        const extractEndpoint = `/api/v1/builds/builds/${versionId}/extract-package-id`
         const extractRes = await client.postJson(
           `${backendUrl}${extractEndpoint}`,
           {}
@@ -25929,7 +25944,7 @@ async function run() {
 
       // Complete the upload
       core.info('Completing upload...')
-      const completeEndpoint = `/api/v1/builds/versions/${versionId}/complete-upload`
+      const completeEndpoint = `/api/v1/builds/builds/${versionId}/complete-upload`
 
       // Add file_name to metadata so backend uses correct S3 key
       const completeMetadata = {
@@ -25955,15 +25970,16 @@ async function run() {
         throw Error(`Failed to complete upload: ${errorMsg}`)
       }
 
-      artifactUrl = `org/${buildVarId}/${version}/${fileName}` // Approximate S3 key
+      artifactUrl = `org/${resolvedAppId}/${version}/${fileName}` // Approximate S3 key
       core.info('Upload completed successfully')
     }
 
     const uploadTime = Math.round((Date.now() - startTime) / 1000)
 
-    // Set outputs
+    // Set outputs - both new names and deprecated aliases
     core.setOutput('success', 'true')
-    core.setOutput('version-id', versionId)
+    core.setOutput('build-id', versionId) // New name
+    core.setOutput('version-id', versionId) // Deprecated alias
     core.setOutput('version', version)
     if (packageId) {
       core.setOutput('package-id', packageId)
@@ -25971,7 +25987,7 @@ async function run() {
     core.setOutput('upload-time', uploadTime.toString())
 
     core.info(`✅ Build upload completed successfully in ${uploadTime}s`)
-    core.info(`   Version ID: ${versionId}`)
+    core.info(`   Build ID: ${versionId}`)
     core.info(`   Version: ${version}`)
     if (packageId) {
       core.info(`   Package ID: ${packageId}`)

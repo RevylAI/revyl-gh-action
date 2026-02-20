@@ -14,9 +14,7 @@ function safeParseEventData(event, eventType) {
   try {
     return JSON.parse(event.data)
   } catch (error) {
-    core.error(
-      `Failed to parse ${eventType} event data: ${error.message}`
-    )
+    core.error(`Failed to parse ${eventType} event data: ${error.message}`)
     core.debug(`Malformed event data: ${event.data}`)
     return null
   }
@@ -70,7 +68,8 @@ async function monitorTest(
         // Check various properties that might exist
         if (error.message) errorMsg += `: ${error.message}`
         else if (error.status) errorMsg += ` (HTTP ${error.status})`
-        else if (error.type === 'error') errorMsg += ' - check network connectivity and authentication'
+        else if (error.type === 'error')
+          errorMsg += ' - check network connectivity and authentication'
       }
 
       core.error(errorMsg)
@@ -289,12 +288,23 @@ Click the report link above to investigate the failure.
         reject(new Error(`SSE error: ${errorMessage}`))
       } else {
         // Handle non-JSON error events - this is usually a connection-level issue
-        core.error('SSE error event received (non-JSON) - likely a connection or authentication issue')
-        core.error('Event details:', JSON.stringify({ type: event.type, data: event.data }))
-        core.info('Troubleshooting: Verify REVYL_API_KEY is valid and backend service is healthy')
+        core.error(
+          'SSE error event received (non-JSON) - likely a connection or authentication issue'
+        )
+        core.error(
+          'Event details:',
+          JSON.stringify({ type: event.type, data: event.data })
+        )
+        core.info(
+          'Troubleshooting: Verify REVYL_API_KEY is valid and backend service is healthy'
+        )
         eventSource.close()
         clearTimeout(timeoutHandle)
-        reject(new Error('SSE connection error - check authentication and network connectivity'))
+        reject(
+          new Error(
+            'SSE connection error - check authentication and network connectivity'
+          )
+        )
       }
     })
   })

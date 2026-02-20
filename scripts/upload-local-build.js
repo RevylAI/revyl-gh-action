@@ -57,7 +57,7 @@ function streamUpload(filePath, buildVarId, version, apiKey) {
     const boundary = `----RevylUpload${Date.now()}`
 
     const url = new URL(
-      `${BACKEND_URL}/api/v1/builds/vars/${buildVarId}/versions/stream-upload?version=${encodeURIComponent(
+      `${BACKEND_URL}/api/v1/builds/apps/${buildVarId}/builds/stream-upload?version=${encodeURIComponent(
         version
       )}`
     )

@@ -17,8 +17,21 @@ async function run() {
     const testId = core.getInput('test-id', { required: false })
     const workflowId = core.getInput('workflow-id', { required: false })
     const retries = core.getInput('retries', { required: false }) || 1
-    const buildVersionId =
-      core.getInput('build-version-id', { required: false }) || null
+
+    // Support both new (build-id) and deprecated (build-version-id)
+    const buildId = core.getInput('build-id', { required: false })
+    const buildVersionId = core.getInput('build-version-id', {
+      required: false
+    })
+    const resolvedBuildId = buildId || buildVersionId || null
+
+    // Warn if using deprecated input
+    if (!buildId && buildVersionId) {
+      core.warning(
+        'build-version-id is deprecated. Please use build-id instead.'
+      )
+    }
+
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '3600',
       10
@@ -53,7 +66,7 @@ async function run() {
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
       'https://backend.revyl.ai'
-    
+
     // Execution base URL: always use backend + /api/v1/execution
     const executionBaseUrl = `${backendBaseUrl}/api/v1/execution`
     const statusBaseUrl = backendBaseUrl
@@ -69,8 +82,8 @@ async function run() {
 
     core.startGroup(`Starting ${testId ? 'Test' : 'Workflow'} Execution`)
     core.info(`${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
-    if (buildVersionId) {
-      core.info(`Build Version ID: ${buildVersionId}`)
+    if (resolvedBuildId) {
+      core.info(`Build ID: ${resolvedBuildId}`)
     }
     core.info(`Execution URL: ${initUrl}`)
     if (noWait) {
@@ -87,7 +100,7 @@ async function run() {
       ? {
           test_id: testId,
           retries,
-          ...(buildVersionId && { build_version_id: buildVersionId })
+          ...(resolvedBuildId && { build_version_id: resolvedBuildId })
         }
       : {
           workflow_id: workflowId,

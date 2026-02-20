@@ -25,7 +25,10 @@ function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
         core.setOutput('total_steps', enhancedTask.total_steps.toString())
       }
       if (enhancedTask.current_step_index !== undefined) {
-        core.setOutput('completed_steps', (enhancedTask.current_step_index + 1).toString())
+        core.setOutput(
+          'completed_steps',
+          (enhancedTask.current_step_index + 1).toString()
+        )
       }
     }
 
@@ -33,12 +36,16 @@ function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
       core.setOutput('error_message', enhancedTask.error_message)
     }
 
-    core.setOutput('success', (completedTestData.status === 'completed').toString())
+    core.setOutput(
+      'success',
+      (completedTestData.status === 'completed').toString()
+    )
   } catch (error) {
-    console.warn('Failed to set outputs from completed test data:', error.message)
+    console.warn(
+      'Failed to set outputs from completed test data:',
+      error.message
+    )
   }
 }
 
 module.exports = { setOutputsFromCompletedTest }
-
-

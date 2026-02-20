@@ -2,78 +2,329 @@ name: 'Run Revyl Test'
 description: 'Run a Revyl test or workflow with real-time monitoring'
 author: 'Revyl'
 
-# Define your inputs here.
 inputs:
+  api-key:
+    description:
+      'Revyl API key for authentication (can also use REVYL_API_KEY env var)'
+    required: false
   workflow-id:
-    description: 'The workflow id to run.'
+    description: 'The workflow ID to run'
     required: false
   test-id:
-    description: 'The test id to run.'
+    description: 'The test ID to run'
     required: false
   retries:
-    description: 'The number of times to retry the test.'
+    description: 'Number of retry attempts (1-5)'
+    required: false
+    default: '1'
+  build-id:
+    description: 'Build ID to use (overrides test default)'
     required: false
   build-version-id:
     description:
-      'Optional build version ID to use for this test execution. Overrides the
-      build version attached to the test.'
+      'DEPRECATED: Use build-id instead. Build ID to use (overrides test
+      default)'
     required: false
+    deprecationMessage: 'build-version-id is deprecated. Use build-id instead.'
   timeout:
-    description:
-      'Timeout in seconds for the execution to complete. Default 3600.'
+    description: 'Timeout in seconds (default: 3600)'
     required: false
-  backend-url:
-    description:
-      'Override backend base URL (e.g., https://backend-staging.revyl.ai)'
-    required: false
+    default: '3600'
   no-wait:
-    description:
-      'If true, launch the test/workflow and exit immediately after it starts
-      without waiting for completion. The action succeeds as long as the
-      execution was successfully queued.'
+    description: 'Exit after test starts without waiting for completion'
     required: false
     default: 'false'
+  backend-url:
+    description: 'Override backend base URL'
+    required: false
+    default: 'https://backend.revyl.ai'
   start-timeout:
-    description:
-      'Timeout in seconds to wait for the test/workflow to start (only used
-      with no-wait mode). Default 60.'
+    description: 'Timeout to wait for test to start in no-wait mode'
     required: false
     default: '60'
   dashboard-url:
-    description:
-      'Override dashboard base URL for report links (e.g., https://staging.revyl.ai).
-      Default: https://app.revyl.ai'
+    description: 'Override dashboard base URL for report links'
     required: false
     default: 'https://app.revyl.ai'
+  # CLI mode options (experimental)
+  use-cli:
+    description: 'Use CLI instead of Node.js (experimental)'
+    required: false
+    default: 'false'
+  cli-version:
+    description:
+      'Revyl CLI version to use when use-cli is true (default: latest)'
+    required: false
+    default: 'latest'
 
-# Define your outputs here.
 outputs:
   success:
-    description: 'Whether or not the test/workflow succeeded.'
+    description: 'Whether the test/workflow succeeded'
+    value:
+      ${{ steps.run-node.outputs.success || steps.run-cli.outputs.success }}
   task_id:
-    description: 'The task identifier returned by the async API.'
-  execution_time:
-    description: 'Total execution time reported by the platform.'
-  platform:
-    description: 'Execution platform (web, ios, android).'
-  error_message:
-    description: 'Error message if execution failed.'
+    description: 'The task ID for the execution'
+    value:
+      ${{ steps.run-node.outputs.task_id || steps.run-cli.outputs.task_id }}
   report_link:
-    description: 'Shareable link to the detailed test execution report.'
-  # Workflow-specific outputs
+    description: 'Link to the test report'
+    value:
+      ${{ steps.run-node.outputs.report_link ||
+      steps.run-cli.outputs.report_link }}
+  execution_time:
+    description: 'Total execution time'
+    value:
+      ${{ steps.run-node.outputs.execution_time ||
+      steps.run-cli.outputs.execution_time }}
+  error_message:
+    description: 'Error message if failed'
+    value:
+      ${{ steps.run-node.outputs.error_message ||
+      steps.run-cli.outputs.error_message }}
+  platform:
+    description: 'Execution platform (ios, android)'
+    value:
+      ${{ steps.run-node.outputs.platform || steps.run-cli.outputs.platform }}
+  # Workflow outputs
   total_tests:
-    description: 'Total number of tests in the workflow.'
+    description: 'Total tests in workflow'
+    value:
+      ${{ steps.run-node.outputs.total_tests ||
+      steps.run-cli.outputs.total_tests }}
   completed_tests:
-    description: 'Number of tests completed in the workflow.'
+    description: 'Completed tests in workflow'
+    value:
+      ${{ steps.run-node.outputs.completed_tests ||
+      steps.run-cli.outputs.completed_tests }}
   passed_tests:
-    description: 'Number of tests that passed in the workflow.'
+    description: 'Passed tests in workflow'
+    value:
+      ${{ steps.run-node.outputs.passed_tests ||
+      steps.run-cli.outputs.passed_tests }}
   failed_tests:
-    description: 'Number of tests that failed in the workflow.'
-  # Test-specific outputs
+    description: 'Failed tests in workflow'
+    value:
+      ${{ steps.run-node.outputs.failed_tests ||
+      steps.run-cli.outputs.failed_tests }}
+  # Test outputs
   total_steps:
-    description: 'Total number of steps in the test.'
+    description: 'Total steps in test'
+    value:
+      ${{ steps.run-node.outputs.total_steps ||
+      steps.run-cli.outputs.total_steps }}
   completed_steps:
-    description: 'Number of steps completed in the test.'
+    description: 'Completed steps in test'
+    value:
+      ${{ steps.run-node.outputs.completed_steps ||
+      steps.run-cli.outputs.completed_steps }}
+
 runs:
-  using: node20
-  main: dist/index.js
+  using: 'composite'
+  steps:
+    # ============================================
+    # Node.js Mode (Default)
+    # ============================================
+    - name: Setup Node.js
+      if: inputs.use-cli != 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run via Node.js
+      id: run-node
+      if: inputs.use-cli != 'true'
+      shell: bash
+      env:
+        REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
+        INPUT_TEST_ID: ${{ inputs.test-id }}
+        INPUT_WORKFLOW_ID: ${{ inputs.workflow-id }}
+        INPUT_RETRIES: ${{ inputs.retries }}
+        INPUT_BUILD_ID: ${{ inputs.build-id }}
+        INPUT_BUILD_VERSION_ID: ${{ inputs.build-version-id }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_NO_WAIT: ${{ inputs.no-wait }}
+        INPUT_BACKEND_URL: ${{ inputs.backend-url }}
+        INPUT_START_TIMEOUT: ${{ inputs.start-timeout }}
+        INPUT_DASHBOARD_URL: ${{ inputs.dashboard-url }}
+      run: |
+        # Run the Node.js implementation
+        cd ${{ github.action_path }}
+        node dist/index.js
+
+    # ============================================
+    # CLI Mode (Experimental)
+    # ============================================
+    - name: Determine platform
+      id: platform
+      if: inputs.use-cli == 'true'
+      shell: bash
+      run: |
+        case "${{ runner.os }}" in
+          Linux)
+            echo "os=linux" >> $GITHUB_OUTPUT
+            ;;
+          macOS)
+            echo "os=darwin" >> $GITHUB_OUTPUT
+            ;;
+          Windows)
+            echo "os=windows" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+        case "${{ runner.arch }}" in
+          X64)
+            echo "arch=amd64" >> $GITHUB_OUTPUT
+            ;;
+          ARM64)
+            echo "arch=arm64" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+    - name: Download Revyl CLI
+      if: inputs.use-cli == 'true'
+      shell: bash
+      run: |
+        OS="${{ steps.platform.outputs.os }}"
+        ARCH="${{ steps.platform.outputs.arch }}"
+        VERSION="${{ inputs.cli-version }}"
+
+        EXT=""
+        if [ "$OS" = "windows" ]; then
+          EXT=".exe"
+        fi
+
+        BINARY="revyl-${OS}-${ARCH}${EXT}"
+
+        if [ "$VERSION" = "latest" ]; then
+          URL="https://github.com/RevylAI/revyl-cli/releases/latest/download/${BINARY}"
+        else
+          URL="https://github.com/RevylAI/revyl-cli/releases/download/${VERSION}/${BINARY}"
+        fi
+
+        echo "Downloading Revyl CLI from ${URL}..."
+        curl -sL -o revyl "${URL}" || {
+          echo "::error::Failed to download Revyl CLI from ${URL}"
+          exit 1
+        }
+        chmod +x revyl
+
+        echo "Revyl CLI downloaded successfully"
+        ./revyl version || true
+
+    - name: Run via CLI
+      id: run-cli
+      if: inputs.use-cli == 'true'
+      shell: bash
+      env:
+        REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
+      run: |
+        # Determine command type
+        if [ -n "${{ inputs.test-id }}" ]; then
+          CMD="run test ${{ inputs.test-id }}"
+          TYPE="test"
+        elif [ -n "${{ inputs.workflow-id }}" ]; then
+          CMD="run workflow ${{ inputs.workflow-id }}"
+          TYPE="workflow"
+        else
+          echo "::error::Either test-id or workflow-id must be provided"
+          exit 1
+        fi
+
+        # Build arguments
+        ARGS=""
+
+        if [ "${{ inputs.retries }}" != "1" ]; then
+          ARGS="${ARGS} --retries ${{ inputs.retries }}"
+        fi
+
+        # Support both new (build-id) and deprecated (build-version-id)
+        BUILD_ID="${{ inputs.build-id }}"
+        if [ -z "${BUILD_ID}" ]; then
+          BUILD_ID="${{ inputs.build-version-id }}"
+        fi
+        if [ -n "${BUILD_ID}" ]; then
+          ARGS="${ARGS} --build-version-id ${BUILD_ID}"
+        fi
+
+        if [ "${{ inputs.timeout }}" != "3600" ]; then
+          ARGS="${ARGS} --timeout ${{ inputs.timeout }}"
+        fi
+
+        if [ "${{ inputs.no-wait }}" = "true" ]; then
+          ARGS="${ARGS} --no-wait"
+        fi
+
+        # Check if backend-url indicates dev/staging mode
+        BACKEND_URL="${{ inputs.backend-url }}"
+        if echo "${BACKEND_URL}" | grep -qE "(staging|localhost|dev)"; then
+          ARGS="${ARGS} --dev"
+        fi
+
+        # Add JSON output for parsing
+        ARGS="${ARGS} --output --github-actions"
+
+        echo "Running: ./revyl ${CMD} ${ARGS}"
+
+        # Run and capture output
+        set +e
+        OUTPUT=$(./revyl ${CMD} ${ARGS} 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        echo "${OUTPUT}"
+
+        # Parse JSON output
+        if echo "${OUTPUT}" | grep -q '"task_id"'; then
+          TASK_ID=$(echo "${OUTPUT}" | grep -o '"task_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "task_id=${TASK_ID}" >> $GITHUB_OUTPUT
+          
+          # Generate report link
+          if [ "$TYPE" = "test" ]; then
+            REPORT_LINK="${{ inputs.dashboard-url }}/tests/report?taskId=${TASK_ID}"
+          else
+            REPORT_LINK="${{ inputs.dashboard-url }}/workflows/report?taskId=${TASK_ID}"
+          fi
+          echo "report_link=${REPORT_LINK}" >> $GITHUB_OUTPUT
+        fi
+
+        # Parse success
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "success=true" >> $GITHUB_OUTPUT
+        else
+          echo "success=false" >> $GITHUB_OUTPUT
+        fi
+
+        # Parse error message
+        if echo "${OUTPUT}" | grep -q '"error"'; then
+          ERROR=$(echo "${OUTPUT}" | grep -o '"error":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "error_message=${ERROR}" >> $GITHUB_OUTPUT
+        fi
+
+        # Parse workflow-specific outputs
+        if [ "$TYPE" = "workflow" ]; then
+          if echo "${OUTPUT}" | grep -q '"total_tests"'; then
+            TOTAL=$(echo "${OUTPUT}" | grep -o '"total_tests":[0-9]*' | head -1 | cut -d':' -f2)
+            echo "total_tests=${TOTAL}" >> $GITHUB_OUTPUT
+          fi
+          if echo "${OUTPUT}" | grep -q '"passed_tests"'; then
+            PASSED=$(echo "${OUTPUT}" | grep -o '"passed_tests":[0-9]*' | head -1 | cut -d':' -f2)
+            echo "passed_tests=${PASSED}" >> $GITHUB_OUTPUT
+            echo "completed_tests=${PASSED}" >> $GITHUB_OUTPUT
+          fi
+          if echo "${OUTPUT}" | grep -q '"failed_tests"'; then
+            FAILED=$(echo "${OUTPUT}" | grep -o '"failed_tests":[0-9]*' | head -1 | cut -d':' -f2)
+            echo "failed_tests=${FAILED}" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # Parse duration
+        if echo "${OUTPUT}" | grep -q '"duration"'; then
+          DURATION=$(echo "${OUTPUT}" | grep -o '"duration":"[^"]*"' | head -1 | cut -d'"' -f4)
+          echo "execution_time=${DURATION}" >> $GITHUB_OUTPUT
+        fi
+
+        exit $EXIT_CODE
+
+branding:
+  icon: 'play-circle'
+  color: 'purple'

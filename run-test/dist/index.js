@@ -7193,8 +7193,21 @@ async function run() {
     const testId = core.getInput('test-id', { required: false })
     const workflowId = core.getInput('workflow-id', { required: false })
     const retries = core.getInput('retries', { required: false }) || 1
-    const buildVersionId =
-      core.getInput('build-version-id', { required: false }) || null
+
+    // Support both new (build-id) and deprecated (build-version-id)
+    const buildId = core.getInput('build-id', { required: false })
+    const buildVersionId = core.getInput('build-version-id', {
+      required: false
+    })
+    const resolvedBuildId = buildId || buildVersionId || null
+
+    // Warn if using deprecated input
+    if (!buildId && buildVersionId) {
+      core.warning(
+        'build-version-id is deprecated. Please use build-id instead.'
+      )
+    }
+
     const timeoutSeconds = parseInt(
       core.getInput('timeout', { required: false }) || '3600',
       10
@@ -7229,7 +7242,7 @@ async function run() {
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
       'https://backend.revyl.ai'
-    
+
     // Execution base URL: always use backend + /api/v1/execution
     const executionBaseUrl = `${backendBaseUrl}/api/v1/execution`
     const statusBaseUrl = backendBaseUrl
@@ -7245,8 +7258,8 @@ async function run() {
 
     core.startGroup(`Starting ${testId ? 'Test' : 'Workflow'} Execution`)
     core.info(`${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
-    if (buildVersionId) {
-      core.info(`Build Version ID: ${buildVersionId}`)
+    if (resolvedBuildId) {
+      core.info(`Build ID: ${resolvedBuildId}`)
     }
     core.info(`Execution URL: ${initUrl}`)
     if (noWait) {
@@ -7263,7 +7276,7 @@ async function run() {
       ? {
           test_id: testId,
           retries,
-          ...(buildVersionId && { build_version_id: buildVersionId })
+          ...(resolvedBuildId && { build_version_id: resolvedBuildId })
         }
       : {
           workflow_id: workflowId,
@@ -7432,7 +7445,14 @@ async function monitorTaskViaSSE(
   dashboardBaseUrl = 'https://app.revyl.ai'
 ) {
   if (testId)
-    return monitorTest(taskId, testId, backendBaseUrl, client, timeoutSeconds, dashboardBaseUrl)
+    return monitorTest(
+      taskId,
+      testId,
+      backendBaseUrl,
+      client,
+      timeoutSeconds,
+      dashboardBaseUrl
+    )
   if (workflowId)
     return monitorWorkflow(
       taskId,
@@ -7483,9 +7503,7 @@ async function waitForStart(
     }, timeoutSeconds * 1000)
 
     eventSource.onopen = () => {
-      core.info(
-        'Connection established - waiting for execution to start...'
-      )
+      core.info('Connection established - waiting for execution to start...')
     }
 
     eventSource.onerror = error => {
@@ -7680,9 +7698,7 @@ function safeParseEventData(event, eventType) {
   try {
     return JSON.parse(event.data)
   } catch (error) {
-    core.error(
-      `Failed to parse ${eventType} event data: ${error.message}`
-    )
+    core.error(`Failed to parse ${eventType} event data: ${error.message}`)
     core.debug(`Malformed event data: ${event.data}`)
     return null
   }
@@ -7736,7 +7752,8 @@ async function monitorTest(
         // Check various properties that might exist
         if (error.message) errorMsg += `: ${error.message}`
         else if (error.status) errorMsg += ` (HTTP ${error.status})`
-        else if (error.type === 'error') errorMsg += ' - check network connectivity and authentication'
+        else if (error.type === 'error')
+          errorMsg += ' - check network connectivity and authentication'
       }
 
       core.error(errorMsg)
@@ -7955,12 +7972,23 @@ Click the report link above to investigate the failure.
         reject(new Error(`SSE error: ${errorMessage}`))
       } else {
         // Handle non-JSON error events - this is usually a connection-level issue
-        core.error('SSE error event received (non-JSON) - likely a connection or authentication issue')
-        core.error('Event details:', JSON.stringify({ type: event.type, data: event.data }))
-        core.info('Troubleshooting: Verify REVYL_API_KEY is valid and backend service is healthy')
+        core.error(
+          'SSE error event received (non-JSON) - likely a connection or authentication issue'
+        )
+        core.error(
+          'Event details:',
+          JSON.stringify({ type: event.type, data: event.data })
+        )
+        core.info(
+          'Troubleshooting: Verify REVYL_API_KEY is valid and backend service is healthy'
+        )
         eventSource.close()
         clearTimeout(timeoutHandle)
-        reject(new Error('SSE connection error - check authentication and network connectivity'))
+        reject(
+          new Error(
+            'SSE connection error - check authentication and network connectivity'
+          )
+        )
       }
     })
   })
@@ -8043,8 +8071,8 @@ async function fetchFinalWorkflowResults(taskId, backendBaseUrl, client) {
       return {
         status: task.status,
         success: task.success,
-        total_tests: task.total_tests || 0,
-        completed_tests: task.completed_tests || 0,
+        total_tests: task.total_tests ?? 0,
+        completed_tests: task.completed_tests ?? 0,
         passed_tests,
         failed_tests,
         tests: task.tests || []
@@ -8137,9 +8165,10 @@ async function monitorWorkflow(
         return
       }
 
-      const attemptInfo = reconnectAttempts > 0
-        ? ` (reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
-        : ''
+      const attemptInfo =
+        reconnectAttempts > 0
+          ? ` (reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+          : ''
       core.debug(`Connecting to SSE stream${attemptInfo}...`)
 
       const eventSource = new EventSource(sseUrl, {
@@ -8186,7 +8215,9 @@ async function monitorWorkflow(
         reconnectAttempts++
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          core.error(`Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`)
+          core.error(
+            `Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
+          )
           clearTimeout(connectionTimeout)
           cleanup()
 
@@ -8210,7 +8241,11 @@ async function monitorWorkflow(
                   resolve(null)
                 }
               } else {
-                reject(new Error('SSE connection failed and could not fetch final status'))
+                reject(
+                  new Error(
+                    'SSE connection failed and could not fetch final status'
+                  )
+                )
               }
             })
             .catch(err => {
@@ -8229,7 +8264,9 @@ async function monitorWorkflow(
         }
 
         const delay = calculateBackoffDelay(reconnectAttempts - 1)
-        core.info(`Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`)
+        core.info(
+          `Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+        )
 
         reconnectTimeoutHandle = setTimeout(() => {
           createConnection()
@@ -8257,7 +8294,7 @@ async function monitorWorkflow(
           // Only log workflow header once
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
-            const totalTests = ourWorkflow.task.total_tests || '?'
+            const totalTests = ourWorkflow.task.total_tests ?? '?'
             const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${ourWorkflow.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
@@ -8267,11 +8304,19 @@ async function monitorWorkflow(
 
           // Set initial outputs
           core.setOutput('status', ourWorkflow.task.status)
-          core.setOutput('total_tests', (ourWorkflow.task.total_tests || 0).toString())
-          core.setOutput('completed_tests', (ourWorkflow.task.completed_tests || 0).toString())
+          core.setOutput(
+            'total_tests',
+            (ourWorkflow.task.total_tests ?? 0).toString()
+          )
+          core.setOutput(
+            'completed_tests',
+            (ourWorkflow.task.completed_tests ?? 0).toString()
+          )
         } else if (workflowStarted) {
           // Workflow was previously seen but is no longer in running list
-          core.info('Workflow no longer in running list - checking final status...')
+          core.info(
+            'Workflow no longer in running list - checking final status...'
+          )
 
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
@@ -8280,14 +8325,26 @@ async function monitorWorkflow(
                 const totalTime = ((Date.now() - startTime) / 1000).toFixed(0)
 
                 if (['completed', 'success'].includes(status)) {
-                  logWorkflowSummary(true, results.workflow_name || workflowId, totalTime)
-                  setFinalOutputs(results, 'completed', results.success !== false)
+                  logWorkflowSummary(
+                    true,
+                    results.workflow_name || workflowId,
+                    totalTime
+                  )
+                  setFinalOutputs(
+                    results,
+                    'completed',
+                    results.success !== false
+                  )
                   finalStatus = 'completed'
                   clearTimeout(connectionTimeout)
                   cleanup()
                   resolve('completed')
                 } else if (['failed', 'error', 'timeout'].includes(status)) {
-                  logWorkflowSummary(false, results.workflow_name || workflowId, totalTime)
+                  logWorkflowSummary(
+                    false,
+                    results.workflow_name || workflowId,
+                    totalTime
+                  )
                   setFinalOutputs(results, 'failed', false)
                   finalStatus = 'failed'
                   clearTimeout(connectionTimeout)
@@ -8304,7 +8361,9 @@ async function monitorWorkflow(
               }
             })
             .catch(err => {
-              core.warning(`Could not fetch status after reconnection: ${err.message}`)
+              core.warning(
+                `Could not fetch status after reconnection: ${err.message}`
+              )
             })
         }
       })
@@ -8324,7 +8383,7 @@ async function monitorWorkflow(
           // Only log workflow header once
           if (!workflowHeaderLogged) {
             workflowHeaderLogged = true
-            const totalTests = wf.task.total_tests || '?'
+            const totalTests = wf.task.total_tests ?? '?'
             const workflowReportUrl = `${dashboardBaseUrl}/workflows/report?taskId=${taskId}`
             core.info(`${wf.workflow_name} (${totalTests} tests)`)
             core.info(`Report: ${workflowReportUrl}`)
@@ -8358,13 +8417,27 @@ async function monitorWorkflow(
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
               if (results) {
-                core.setOutput('total_tests', (results.total_tests || 0).toString())
-                core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-                core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-                core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+                core.setOutput(
+                  'total_tests',
+                  (results.total_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'completed_tests',
+                  (results.completed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'passed_tests',
+                  (results.passed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'failed_tests',
+                  (results.failed_tests ?? 0).toString()
+                )
               }
             })
-            .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+            .catch(err =>
+              core.warning(`Could not fetch final results: ${err.message}`)
+            )
 
           clearTimeout(connectionTimeout)
           cleanup()
@@ -8390,10 +8463,22 @@ async function monitorWorkflow(
           fetchFinalWorkflowResults(taskId, backendBaseUrl, client)
             .then(results => {
               if (results) {
-                core.setOutput('total_tests', (results.total_tests || 0).toString())
-                core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-                core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-                core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+                core.setOutput(
+                  'total_tests',
+                  (results.total_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'completed_tests',
+                  (results.completed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'passed_tests',
+                  (results.passed_tests ?? 0).toString()
+                )
+                core.setOutput(
+                  'failed_tests',
+                  (results.failed_tests ?? 0).toString()
+                )
 
                 // Check for failed tests
                 if (results.tests && Array.isArray(results.tests)) {
@@ -8406,7 +8491,9 @@ async function monitorWorkflow(
                 }
               }
             })
-            .catch(err => core.warning(`Could not fetch final results: ${err.message}`))
+            .catch(err =>
+              core.warning(`Could not fetch final results: ${err.message}`)
+            )
 
           clearTimeout(connectionTimeout)
           cleanup()
@@ -8447,7 +8534,10 @@ async function monitorWorkflow(
           // Track test internally (prevent duplicates from reconnection)
           if (!activeTests.has(testTaskId)) {
             const testName = test.test_name || 'Unknown Test'
-            activeTests.set(testTaskId, { name: testName, startTime: Date.now() })
+            activeTests.set(testTaskId, {
+              name: testName,
+              startTime: Date.now()
+            })
           }
         }
       })
@@ -8545,10 +8635,13 @@ async function monitorWorkflow(
       core.setOutput('success', success ? 'true' : 'false')
       core.setOutput('status', status)
       if (results) {
-        core.setOutput('total_tests', (results.total_tests || 0).toString())
-        core.setOutput('completed_tests', (results.completed_tests || 0).toString())
-        core.setOutput('passed_tests', (results.passed_tests || 0).toString())
-        core.setOutput('failed_tests', (results.failed_tests || 0).toString())
+        core.setOutput('total_tests', (results.total_tests ?? 0).toString())
+        core.setOutput(
+          'completed_tests',
+          (results.completed_tests ?? 0).toString()
+        )
+        core.setOutput('passed_tests', (results.passed_tests ?? 0).toString())
+        core.setOutput('failed_tests', (results.failed_tests ?? 0).toString())
       }
     }
 
@@ -8592,7 +8685,10 @@ function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
         core.setOutput('total_steps', enhancedTask.total_steps.toString())
       }
       if (enhancedTask.current_step_index !== undefined) {
-        core.setOutput('completed_steps', (enhancedTask.current_step_index + 1).toString())
+        core.setOutput(
+          'completed_steps',
+          (enhancedTask.current_step_index + 1).toString()
+        )
       }
     }
 
@@ -8600,15 +8696,19 @@ function setOutputsFromCompletedTest(completedTestData, testId, workflowId) {
       core.setOutput('error_message', enhancedTask.error_message)
     }
 
-    core.setOutput('success', (completedTestData.status === 'completed').toString())
+    core.setOutput(
+      'success',
+      (completedTestData.status === 'completed').toString()
+    )
   } catch (error) {
-    console.warn('Failed to set outputs from completed test data:', error.message)
+    console.warn(
+      'Failed to set outputs from completed test data:',
+      error.message
+    )
   }
 }
 
 module.exports = { setOutputsFromCompletedTest }
-
-
 
 
 /***/ }),
@@ -8658,7 +8758,9 @@ function logProgress(taskInfo, testId, workflowId) {
     }
 
     if (taskInfo.completed_tests !== undefined && taskInfo.total_tests) {
-      const percentage = Math.round((taskInfo.completed_tests / taskInfo.total_tests) * 100)
+      const percentage = Math.round(
+        (taskInfo.completed_tests / taskInfo.total_tests) * 100
+      )
       message += ` | Tests: ${taskInfo.completed_tests}/${taskInfo.total_tests} (${percentage}%)`
     }
 
@@ -8667,8 +8769,6 @@ function logProgress(taskInfo, testId, workflowId) {
 }
 
 module.exports = { logProgress }
-
-
 
 
 /***/ }),
@@ -8685,7 +8785,11 @@ const fetch = __nccwpck_require__(467)
  * @param {string} dashboardBaseUrl - Dashboard base URL for report origin
  * @returns {Promise<string|null>} Shareable link or null
  */
-async function generateShareableReportLink(completedTestData, backendBaseUrl, dashboardBaseUrl = 'https://app.revyl.ai') {
+async function generateShareableReportLink(
+  completedTestData,
+  backendBaseUrl,
+  dashboardBaseUrl = 'https://app.revyl.ai'
+) {
   try {
     let testId = null
     let historyId = null
@@ -8775,8 +8879,6 @@ function formatDuration(seconds) {
 }
 
 module.exports = { formatDuration }
-
-
 
 
 /***/ }),

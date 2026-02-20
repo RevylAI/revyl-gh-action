@@ -62,8 +62,9 @@ generation.
 
 ### No-Wait Mode
 
-Launch tests without waiting for completion. The action succeeds immediately after
-the test is queued, only failing if there was an error starting the execution.
+Launch tests without waiting for completion. The action succeeds immediately
+after the test is queued, only failing if there was an error starting the
+execution.
 
 ```yaml
 - name: Launch Revyl Test (No-Wait)
@@ -92,15 +93,15 @@ the test is queued, only failing if there was an error starting the execution.
 
 ## Inputs
 
-| Input              | Description                                               | Required | Default                           |
-| ------------------ | --------------------------------------------------------- | -------- | --------------------------------- |
-| `test-id`          | ID of the test to run                                     | No\*     |                                   |
-| `workflow-id`      | ID of the workflow to run                                 | No\*     |                                   |
-| `retries`          | Number of retries for failed tests                        | No       | `1`                               |
-| `llm_model_name`   | LLM model to use                                          | No       |                                   |
-| `build-version-id` | Build version ID to use (overrides test's attached build) | No       |                                   |
-| `timeout`          | Maximum time to wait (seconds)                            | No       | `3600`                            |
-| `no-wait`          | Launch and exit immediately without waiting for completion | No       | `false`                           |
+| Input              | Description                                                | Required | Default |
+| ------------------ | ---------------------------------------------------------- | -------- | ------- |
+| `test-id`          | ID of the test to run                                      | No\*     |         |
+| `workflow-id`      | ID of the workflow to run                                  | No\*     |         |
+| `retries`          | Number of retries for failed tests                         | No       | `1`     |
+| `llm_model_name`   | LLM model to use                                           | No       |         |
+| `build-version-id` | Build version ID to use (overrides test's attached build)  | No       |         |
+| `timeout`          | Maximum time to wait (seconds)                             | No       | `3600`  |
+| `no-wait`          | Launch and exit immediately without waiting for completion | No       | `false` |
 
 \*Either `test-id` or `workflow-id` must be provided, but not both.
 

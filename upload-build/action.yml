@@ -1,15 +1,20 @@
 name: 'Upload Build to Revyl'
-description: 'Upload a build artifact or Expo URL to Revyl build system'
+description: 'Upload a build artifact or Expo URL to Revyl'
 author: 'Revyl'
 
 # Define your inputs here.
 inputs:
+  app-id:
+    description: 'The app ID to upload the build to.'
+    required: false
   build-var-id:
-    description: 'The build variable ID to upload the version to.'
-    required: true
+    description:
+      'DEPRECATED: Use app-id instead. The app ID to upload the build to.'
+    required: false
+    deprecationMessage: 'build-var-id is deprecated. Use app-id instead.'
   version:
     description:
-      'Version string for this build (must be unique within the build variable).'
+      'Version/build name for this upload (must be unique within the app).'
     required: true
   file-path:
     description:
@@ -40,8 +45,11 @@ inputs:
 outputs:
   success:
     description: 'Whether the upload was successful.'
+  build-id:
+    description: 'The ID of the created build.'
   version-id:
-    description: 'The ID of the created build version.'
+    description:
+      'DEPRECATED: Use build-id instead. The ID of the created build.'
   version:
     description: 'The version string of the uploaded build.'
   package-id:
