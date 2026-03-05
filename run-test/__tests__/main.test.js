@@ -32,7 +32,20 @@ jest.mock(
             data: JSON.stringify({
               workflow: {
                 workflow_name: 'Sample Workflow',
-                task: { task_id: taskId, total_tests: 3 }
+                task: { task_id: taskId, total_tests: 1 }
+              }
+            })
+          })
+        }
+
+        // For workflow no-wait mode, emit at least one child test_started event.
+        if (ev === 'workflow_started' && this.listeners['test_started']) {
+          this.listeners['test_started']({
+            data: JSON.stringify({
+              test: {
+                task_id: `${taskId}-child-1`,
+                parent_workflow_task_id: taskId,
+                test_name: 'Child Test 1'
               }
             })
           })
@@ -101,6 +114,7 @@ describe('run function', () => {
         info: jest.fn(),
         warning: jest.fn(),
         error: jest.fn(),
+        debug: jest.fn(),
         summary: {
           addHeading: jest.fn().mockReturnThis(),
           addRaw: jest.fn().mockReturnThis(),
@@ -147,7 +161,7 @@ describe('run function', () => {
     await main.run()
 
     expect(core.setFailed).toHaveBeenCalledWith(
-      'Either test-id or workflow-id must be provided'
+      'Either test-id or workflow-id (or workflow_id alias) must be provided'
     )
   })
 
@@ -245,6 +259,45 @@ describe('run function', () => {
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
       'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
       expect.any(Object)
+    )
+    expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
+    expect(core.setOutput).toHaveBeenCalledWith('success', 'true')
+    expect(core.setFailed).not.toHaveBeenCalled()
+  })
+
+  it('queues and completes a workflow by deprecated workflow_id alias', async () => {
+    process.env['REVYL_API_KEY'] = 'test-token'
+    const taskId = 'task_wf_alias_123'
+    global.__MOCK_TASK_ID__ = taskId
+    global.__MOCK_EVENT__ = 'workflow_completed'
+
+    core.getInput.mockImplementation(name => {
+      const map = {
+        'test-id': null,
+        'workflow-id': null,
+        workflow_id: 'wf_alias_123',
+        retries: '0',
+        'build-version-id': null,
+        timeout: '5',
+        'no-wait': ''
+      }
+      return map[name]
+    })
+
+    mockHttpClient.postJson.mockResolvedValue({
+      statusCode: 200,
+      result: { task_id: taskId }
+    })
+
+    const main = require('../src/main')
+    await main.run()
+
+    expect(mockHttpClient.postJson).toHaveBeenCalledWith(
+      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
+      expect.objectContaining({ workflow_id: 'wf_alias_123' })
+    )
+    expect(core.warning).toHaveBeenCalledWith(
+      'workflow_id is deprecated. Please use workflow-id instead.'
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
     expect(core.setOutput).toHaveBeenCalledWith('success', 'true')

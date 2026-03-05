@@ -32,7 +32,8 @@
     "package": "npx ncc build src/index.js -o dist --source-map --license licenses.txt",
     "package:watch": "npm run package -- --watch",
     "test": "npx jest",
-    "all": "npm run format:write && npm run package"
+    "all": "npm run format:write && npm run package",
+    "dist": "npm run package"
   },
   "license": "MIT",
   "eslintConfig": {

@@ -29,6 +29,21 @@ after the workflow is queued, only failing if there was an error starting the ex
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
+### Pinned CLI Version
+
+Execution always runs through the Revyl CLI. Pin a known CLI release for reproducibility.
+
+```yaml
+- name: Run Revyl Workflow via CLI
+  uses: RevylAI/revyl-gh-action/run-workflow@v1
+  with:
+    workflow-id: 'your-workflow-id'
+    timeout: '3600'
+    cli-version: 'v0.1.5'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
 ### Scheduled monitoring example
 
 ```yaml
@@ -57,10 +72,15 @@ jobs:
 
 | Input             | Required | Description                                              | Default |
 | ----------------- | -------- | -------------------------------------------------------- | ------- |
-| `workflow-id`     | Yes      | The workflow id to run                                   |         |
+| `workflow-id`     | Yes\*    | The workflow id to run (preferred)                       |         |
+| `workflow_id`     | No       | Deprecated alias for `workflow-id`                       |         |
 | `retries`         | No       | Number of retries for failed tests in the workflow       | `1`     |
 | `timeout`         | No       | Timeout in seconds for workflow execution                | `3600`  |
+| `backend-url`     | No       | Override backend base URL                                | -       |
 | `no-wait`         | No       | Launch and exit immediately without waiting for completion | `false` |
+| `cli-version`     | No       | CLI version used by the action runtime                   | `latest` |
+
+\* Provide either `workflow-id` (preferred) or the deprecated `workflow_id` alias.
 
 ## Outputs
 
@@ -70,6 +90,7 @@ jobs:
 | `task_id`         | Task id returned by the async execution API   |
 | `total_tests`     | Total number of tests in the workflow         |
 | `completed_tests` | Number of tests completed within the workflow |
+| `execution_time`  | Total execution time reported by the CLI      |
 
 
 ## Environment Variables
@@ -78,5 +99,5 @@ jobs:
 
 ## Notes
 
-- This action delegates to the core `run-test` action for execution, leveraging the same real-time SSE monitoring and error handling.
+- This action is CLI-first and always executes through `revyl-cli`.
 - Pin to a release (e.g., `@v1`) or a commit SHA for stability.

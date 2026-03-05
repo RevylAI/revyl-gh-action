@@ -86,7 +86,7 @@ describe('CLI Integration', () => {
      * @param {string} params.type - 'test' or 'workflow'
      * @param {string} params.id - Test or workflow ID
      * @param {number} [params.retries=1] - Number of retries
-     * @param {string} [params.buildVersionId] - Build version ID
+     * @param {string} [params.buildId] - Build version ID
      * @param {number} [params.timeout=3600] - Timeout in seconds
      * @param {boolean} [params.noWait=false] - No-wait mode
      * @param {boolean} [params.devMode=false] - Development mode
@@ -97,34 +97,36 @@ describe('CLI Integration', () => {
         type,
         id,
         retries = 1,
-        buildVersionId,
+        buildId,
         timeout = 3600,
         noWait = false,
         devMode = false
       } = params
 
-      let cmd = `./revyl run ${type} ${id}`
+      let cmd = `./revyl ${type} run ${id}`
       let args = []
 
       if (retries !== 1) args.push(`--retries ${retries}`)
-      if (buildVersionId) args.push(`--build-version-id ${buildVersionId}`)
+      if (buildId && type === 'test') args.push(`--build-id ${buildId}`)
       if (timeout !== 3600) args.push(`--timeout ${timeout}`)
       if (noWait) args.push('--no-wait')
       if (devMode) args.push('--dev')
-      args.push('--output --github-actions')
+      args.push('--json --github-actions --open=false')
 
       return `${cmd} ${args.join(' ')}`
     }
 
     it('builds basic test command', () => {
       const cmd = buildCommand({ type: 'test', id: 'test-123' })
-      expect(cmd).toBe('./revyl run test test-123 --output --github-actions')
+      expect(cmd).toBe(
+        './revyl test run test-123 --json --github-actions --open=false'
+      )
     })
 
     it('builds basic workflow command', () => {
       const cmd = buildCommand({ type: 'workflow', id: 'workflow-789' })
       expect(cmd).toBe(
-        './revyl run workflow workflow-789 --output --github-actions'
+        './revyl workflow run workflow-789 --json --github-actions --open=false'
       )
     })
 
@@ -133,12 +135,12 @@ describe('CLI Integration', () => {
         type: 'test',
         id: 'test-123',
         retries: 3,
-        buildVersionId: 'build-456',
+        buildId: 'build-456',
         timeout: 1800,
         noWait: true
       })
       expect(cmd).toBe(
-        './revyl run test test-123 --retries 3 --build-version-id build-456 --timeout 1800 --no-wait --output --github-actions'
+        './revyl test run test-123 --retries 3 --build-id build-456 --timeout 1800 --no-wait --json --github-actions --open=false'
       )
     })
 
@@ -149,7 +151,7 @@ describe('CLI Integration', () => {
         retries: 2
       })
       expect(cmd).toBe(
-        './revyl run workflow wf-abc --retries 2 --output --github-actions'
+        './revyl workflow run wf-abc --retries 2 --json --github-actions --open=false'
       )
     })
 
@@ -160,7 +162,7 @@ describe('CLI Integration', () => {
         devMode: true
       })
       expect(cmd).toBe(
-        './revyl run test test-dev --dev --output --github-actions'
+        './revyl test run test-dev --dev --json --github-actions --open=false'
       )
     })
   })
@@ -301,44 +303,37 @@ describe('CLI Integration', () => {
     })
   })
 
-  describe('Backend URL Backward Compatibility', () => {
+  describe('Backend URL Override', () => {
     /**
-     * Helper to detect if a backend URL indicates dev/staging mode.
+     * Helper to build endpoint override env from backend-url input.
      *
-     * @param {string} backendUrl - The backend URL
-     * @returns {boolean} True if dev/staging mode should be enabled
+     * @param {string} backendUrl - backend-url input
+     * @returns {Object} environment overrides
      */
-    function isDevUrl(backendUrl) {
-      return /staging|localhost|dev/.test(backendUrl)
+    function buildBackendEnv(backendUrl) {
+      if (!backendUrl || backendUrl === 'https://backend.revyl.ai') return {}
+      return { REVYL_BACKEND_URL: backendUrl }
     }
 
-    it('detects staging URL', () => {
-      expect(isDevUrl('https://backend-staging.revyl.ai')).toBe(true)
+    it('sets override for staging URL', () => {
+      expect(buildBackendEnv('https://backend-staging.revyl.ai')).toEqual({
+        REVYL_BACKEND_URL: 'https://backend-staging.revyl.ai'
+      })
     })
 
-    it('detects localhost URL', () => {
-      expect(isDevUrl('http://localhost:8000')).toBe(true)
+    it('sets override for localhost URL', () => {
+      expect(buildBackendEnv('http://localhost:8000')).toEqual({
+        REVYL_BACKEND_URL: 'http://localhost:8000'
+      })
     })
 
-    it('detects dev URL', () => {
-      expect(isDevUrl('https://backend-dev.revyl.ai')).toBe(true)
+    it('omits override for default production URL', () => {
+      expect(buildBackendEnv('https://backend.revyl.ai')).toEqual({})
     })
 
-    it('does not flag production URL', () => {
-      expect(isDevUrl('https://backend.revyl.ai')).toBe(false)
-    })
-
-    it('does not flag app URL', () => {
-      expect(isDevUrl('https://app.revyl.ai')).toBe(false)
-    })
-
-    it('handles URL with port', () => {
-      expect(isDevUrl('http://localhost:3000')).toBe(true)
-    })
-
-    it('handles staging subdomain variations', () => {
-      expect(isDevUrl('https://staging.backend.revyl.ai')).toBe(true)
-      expect(isDevUrl('https://api-staging.revyl.ai')).toBe(true)
+    it('omits override when backend-url is empty', () => {
+      expect(buildBackendEnv('')).toEqual({})
+      expect(buildBackendEnv(undefined)).toEqual({})
     })
   })
 
@@ -355,7 +350,10 @@ describe('CLI Integration', () => {
         macOS: 'darwin',
         Windows: 'windows'
       }
-      return mapping[runnerOs] || 'linux'
+      if (!mapping[runnerOs]) {
+        throw new Error(`Unsupported runner.os: ${runnerOs}`)
+      }
+      return mapping[runnerOs]
     }
 
     /**
@@ -369,7 +367,10 @@ describe('CLI Integration', () => {
         X64: 'amd64',
         ARM64: 'arm64'
       }
-      return mapping[runnerArch] || 'amd64'
+      if (!mapping[runnerArch]) {
+        throw new Error(`Unsupported runner.arch: ${runnerArch}`)
+      }
+      return mapping[runnerArch]
     }
 
     it('maps Linux to linux', () => {
@@ -392,12 +393,14 @@ describe('CLI Integration', () => {
       expect(mapArch('ARM64')).toBe('arm64')
     })
 
-    it('defaults to linux for unknown OS', () => {
-      expect(mapOs('Unknown')).toBe('linux')
+    it('throws for unknown OS', () => {
+      expect(() => mapOs('Unknown')).toThrow('Unsupported runner.os: Unknown')
     })
 
-    it('defaults to amd64 for unknown arch', () => {
-      expect(mapArch('Unknown')).toBe('amd64')
+    it('throws for unknown arch', () => {
+      expect(() => mapArch('Unknown')).toThrow(
+        'Unsupported runner.arch: Unknown'
+      )
     })
   })
 })
