@@ -7191,7 +7191,26 @@ async function run() {
 
     // Get inputs and validate
     const testId = core.getInput('test-id', { required: false })
-    const workflowId = core.getInput('workflow-id', { required: false })
+    const workflowIdInput = core.getInput('workflow-id', { required: false })
+    const legacyWorkflowIdInput = core.getInput('workflow_id', {
+      required: false
+    })
+    let workflowId = workflowIdInput || legacyWorkflowIdInput
+
+    if (!workflowIdInput && legacyWorkflowIdInput) {
+      core.warning('workflow_id is deprecated. Please use workflow-id instead.')
+    }
+    if (
+      workflowIdInput &&
+      legacyWorkflowIdInput &&
+      workflowIdInput !== legacyWorkflowIdInput
+    ) {
+      core.warning(
+        'Both workflow-id and workflow_id were provided with different values. Using workflow-id.'
+      )
+      workflowId = workflowIdInput
+    }
+
     const retries = core.getInput('retries', { required: false }) || 1
 
     // Support both new (build-id) and deprecated (build-version-id)
@@ -7224,7 +7243,9 @@ async function run() {
 
     // Validate that either testId or workflowId is provided
     if (!testId && !workflowId) {
-      throw Error('Either test-id or workflow-id must be provided')
+      throw Error(
+        'Either test-id or workflow-id (or workflow_id alias) must be provided'
+      )
     }
     if (testId && workflowId) {
       throw Error('Cannot provide both test-id and workflow-id')

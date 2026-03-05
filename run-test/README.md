@@ -5,6 +5,7 @@ generation.
 
 ## Features
 
+- **CLI-first execution** using `revyl-cli`
 - **Real-time monitoring** using Server-Sent Events (SSE) instead of polling
 - **Automatic report link generation** from test completion events
 - **Progress tracking** with detailed step and phase information
@@ -84,8 +85,8 @@ execution.
   with:
     test-id: 'your-test-id'
     retries: '2'
-    build-version-id: 'specific-build-version-id'
-    llm_model_name: 'gpt-4o'
+    build-id: 'specific-build-id'
+    cli-version: 'v0.1.5'
     timeout: '2400' # 40 minutes
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -93,17 +94,19 @@ execution.
 
 ## Inputs
 
-| Input              | Description                                                | Required | Default |
-| ------------------ | ---------------------------------------------------------- | -------- | ------- |
-| `test-id`          | ID of the test to run                                      | No\*     |         |
-| `workflow-id`      | ID of the workflow to run                                  | No\*     |         |
-| `retries`          | Number of retries for failed tests                         | No       | `1`     |
-| `llm_model_name`   | LLM model to use                                           | No       |         |
-| `build-version-id` | Build version ID to use (overrides test's attached build)  | No       |         |
-| `timeout`          | Maximum time to wait (seconds)                             | No       | `3600`  |
-| `no-wait`          | Launch and exit immediately without waiting for completion | No       | `false` |
+| Input              | Description                                                              | Required | Default                 |
+| ------------------ | ------------------------------------------------------------------------ | -------- | ----------------------- |
+| `test-id`          | ID of the test to run                                                    | No\*     |                         |
+| `workflow-id`      | ID of the workflow to run (preferred)                                    | No\*     |                         |
+| `workflow_id`      | Deprecated alias for `workflow-id`                                       | No       |                         |
+| `retries`          | Number of retries for failed tests                                       | No       | `1`                     |
+| `build-id`         | Build ID to use (preferred over deprecated `build-version-id`)           | No       |                         |
+| `build-version-id` | Deprecated alias for `build-id`                                          | No       |                         |
+| `timeout`          | Maximum time to wait (seconds)                                           | No       | `3600`                  |
+| `no-wait`          | Launch and exit immediately without waiting for completion                | No       | `false`                 |
+| `cli-version`      | Revyl CLI version used by action runtime                                 | No       | `latest`                |
 
-\*Either `test-id` or `workflow-id` must be provided, but not both.
+\*Either `test-id`, `workflow-id` (preferred), or `workflow_id` (deprecated alias) must be provided, but not both test and workflow IDs.
 
 ## Outputs
 

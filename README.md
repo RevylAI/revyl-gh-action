@@ -95,18 +95,22 @@ retries, and shareable report generation.
 | Parameter          | Required | Description                                                      | Default |
 | ------------------ | -------- | ---------------------------------------------------------------- | ------- |
 | `test-id`          | No\*     | The ID of the test to run                                        | -       |
-| `workflow-id`      | No\*     | The ID of the workflow to run                                    | -       |
-| `build-version-id` | No       | ID of a specific build version to use (from upload-build output) | -       |
+| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)                        | -       |
+| `workflow_id`      | No       | Deprecated alias for `workflow-id`                               | -       |
+| `build-id`         | No       | ID of a specific build to use                                     | -       |
+| `build-version-id` | No       | Deprecated alias for `build-id`                                   | -       |
 | `retries`          | No       | Number of retries if test fails                                  | -       |
 | `timeout`          | No       | Timeout in seconds for the test execution                        | `3600`  |
+| `cli-version`      | No       | Revyl CLI version used by the action runtime                     | `latest` |
 
-\* Either `test-id` or `workflow-id` must be provided
+\* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id` is accepted as a deprecated alias.
 
 ### Run Workflow Action (`run-workflow`)
 
 Clean, dedicated entrypoint for executing a Revyl workflow by `workflow-id`.
 This is a thin wrapper around the core runner with workflow-focused
 inputs/outputs.
+For backward compatibility, `workflow_id` is accepted as a deprecated alias.
 
 ```yaml
 # Same-repo usage
@@ -116,6 +120,7 @@ inputs/outputs.
     workflow-id: 'your-workflow-id'
     timeout: '3600'
     backend-url: 'https://backend-staging.revyl.ai'
+    cli-version: 'v0.1.5'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
@@ -125,6 +130,7 @@ inputs/outputs.
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600'
+    cli-version: 'v0.1.5'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
