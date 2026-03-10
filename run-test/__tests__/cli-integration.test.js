@@ -155,6 +155,18 @@ describe('CLI Integration', () => {
       )
     })
 
+    it('builds workflow command with timeout and no-wait', () => {
+      const cmd = buildCommand({
+        type: 'workflow',
+        id: 'wf-no-wait',
+        timeout: 1200,
+        noWait: true
+      })
+      expect(cmd).toBe(
+        './revyl workflow run wf-no-wait --timeout 1200 --no-wait --json --github-actions --open=false'
+      )
+    })
+
     it('builds command with dev mode', () => {
       const cmd = buildCommand({
         type: 'test',
@@ -359,13 +371,17 @@ describe('CLI Integration', () => {
     /**
      * Helper to map runner.arch to CLI arch value.
      *
-     * @param {string} runnerArch - GitHub runner arch (X64, ARM64)
+     * @param {string} runnerArch - GitHub runner arch (X64, ARM64, or act-compatible lowercase variants)
      * @returns {string} CLI arch value (amd64, arm64)
      */
     function mapArch(runnerArch) {
       const mapping = {
         X64: 'amd64',
-        ARM64: 'arm64'
+        x64: 'amd64',
+        AMD64: 'amd64',
+        amd64: 'amd64',
+        ARM64: 'arm64',
+        arm64: 'arm64'
       }
       if (!mapping[runnerArch]) {
         throw new Error(`Unsupported runner.arch: ${runnerArch}`)
@@ -391,6 +407,10 @@ describe('CLI Integration', () => {
 
     it('maps ARM64 to arm64', () => {
       expect(mapArch('ARM64')).toBe('arm64')
+    })
+
+    it('maps lowercase arm64 to arm64 for act host runs', () => {
+      expect(mapArch('arm64')).toBe('arm64')
     })
 
     it('throws for unknown OS', () => {

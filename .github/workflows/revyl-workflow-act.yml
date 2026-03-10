@@ -22,17 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build run-test action (ensure up-to-date dist)
-        run: |
-          cd run-test
-          npm ci
-          npm run package
-
       - name: Execute Revyl workflow
         id: revyl
         uses: ./run-workflow

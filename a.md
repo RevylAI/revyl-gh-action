@@ -2,6 +2,8 @@
 
 - Use the existing workflow at `./.github/workflows/revyl-workflow-act.yml`.
 - Provide `REVYL_API_KEY` as a secret and pass your workflow id.
+- This path uses the action default `cli-version: latest`, so it validates the
+  latest released Revyl CLI, not an unreleased local branch build.
 
 ```bash
 # From repo root

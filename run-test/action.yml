@@ -115,10 +115,10 @@ runs:
         esac
 
         case "${{ runner.arch }}" in
-          X64)
+          X64|x64|AMD64|amd64)
             echo "arch=amd64" >> $GITHUB_OUTPUT
             ;;
-          ARM64)
+          ARM64|arm64)
             echo "arch=arm64" >> $GITHUB_OUTPUT
             ;;
           *)
@@ -128,40 +128,27 @@ runs:
         esac
 
     - name: Download Revyl CLI
+      id: download-cli
       shell: bash
       run: |
         OS="${{ steps.platform.outputs.os }}"
         ARCH="${{ steps.platform.outputs.arch }}"
         VERSION="${{ inputs.cli-version }}"
+        DOWNLOAD_DIR="${RUNNER_TEMP}/revyl-cli"
+        CLI_PATH="$(bash "${{ github.action_path }}/../scripts/download-cli.sh" \
+          --os "$OS" \
+          --arch "$ARCH" \
+          --version "$VERSION" \
+          --output-dir "$DOWNLOAD_DIR")"
 
-        EXT=""
-        if [ "$OS" = "windows" ]; then
-          EXT=".exe"
-        fi
-
-        BINARY="revyl-${OS}-${ARCH}${EXT}"
-
-        if [ "$VERSION" = "latest" ]; then
-          URL="https://github.com/RevylAI/revyl-cli/releases/latest/download/${BINARY}"
-        else
-          URL="https://github.com/RevylAI/revyl-cli/releases/download/${VERSION}/${BINARY}"
-        fi
-
-        echo "Downloading Revyl CLI from ${URL}..."
-        curl -sL -o revyl "${URL}" || {
-          echo "::error::Failed to download Revyl CLI from ${URL}"
-          exit 1
-        }
-        chmod +x revyl
-
-        echo "Revyl CLI downloaded successfully"
-        ./revyl version || true
+        echo "path=${CLI_PATH}" >> "$GITHUB_OUTPUT"
 
     - name: Run via CLI
       id: run-cli
       shell: bash
       env:
         REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
+        REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
           echo "::error::Missing REVYL_API_KEY"
@@ -233,12 +220,12 @@ runs:
         # Add JSON output for parsing
         ARGS="${ARGS} --json --github-actions --open=false"
 
-        echo "Running: ./revyl ${RESOURCE} run ${TARGET_ID} ${ARGS}"
+        echo "Running: ${REVYL_CLI_PATH} ${RESOURCE} run ${TARGET_ID} ${ARGS}"
 
         TMP_OUTPUT="$(mktemp)"
         # Run and capture output
         set +e
-        ./revyl "${RESOURCE}" run "${TARGET_ID}" ${ARGS} 2>&1 | tee "${TMP_OUTPUT}"
+        "${REVYL_CLI_PATH}" "${RESOURCE}" run "${TARGET_ID}" ${ARGS} 2>&1 | tee "${TMP_OUTPUT}"
         EXIT_CODE=${PIPESTATUS[0]}
         set -e
         OUTPUT="$(cat "${TMP_OUTPUT}")"
@@ -318,14 +305,14 @@ runs:
           PASSED="$(extract_number passed_tests)"
           if [ -n "${PASSED}" ]; then
             echo "passed_tests=${PASSED}" >> $GITHUB_OUTPUT
-            if [ -z "${COMPLETED}" ]; then
-              COMPLETED="${PASSED}"
-              echo "completed_tests=${COMPLETED}" >> $GITHUB_OUTPUT
-            fi
           fi
           FAILED="$(extract_number failed_tests)"
           if [ -n "${FAILED}" ]; then
             echo "failed_tests=${FAILED}" >> $GITHUB_OUTPUT
+          fi
+          if [ -z "${COMPLETED}" ] && { [ -n "${PASSED}" ] || [ -n "${FAILED}" ]; }; then
+            COMPLETED=$(( ${PASSED:-0} + ${FAILED:-0} ))
+            echo "completed_tests=${COMPLETED}" >> $GITHUB_OUTPUT
           fi
         fi
 
@@ -351,8 +338,11 @@ runs:
           echo "execution_time=${DURATION}" >> $GITHUB_OUTPUT
         fi
 
+        REQUESTED_NO_WAIT="${{ inputs.no-wait }}"
         if [ -z "${STATUS}" ]; then
-          if [ "${SUCCESS_VALUE}" = "true" ]; then
+          if [ "${REQUESTED_NO_WAIT}" = "true" ] && [ "${SUCCESS_VALUE}" = "true" ]; then
+            STATUS="queued"
+          elif [ "${SUCCESS_VALUE}" = "true" ]; then
             STATUS="completed"
           else
             STATUS="failed"
@@ -376,6 +366,60 @@ runs:
         if [ -n "${REPORT_LINK}" ]; then
           echo "Report: ${REPORT_LINK}"
         fi
+
+        # ── Job Summary ──────────────────────────────────────────────
+        TEST_NAME="$(extract_string test_name)"
+        WORKFLOW_NAME="$(extract_string workflow_name)"
+
+        {
+          if [ "$TYPE" = "workflow" ]; then
+            echo "## Revyl Workflow${WORKFLOW_NAME:+: ${WORKFLOW_NAME}}"
+            echo ""
+            echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+            echo ""
+            if [ -n "${TOTAL}" ]; then
+              echo "### Test Results: ${PASSED:-0}/${TOTAL} passed"
+              echo ""
+            fi
+
+            TEST_JSON_BLOCK="$(echo "${OUTPUT}" | sed -n '/"tests"/,/^[[:space:]]*\]/p')"
+            if [ -n "${TEST_JSON_BLOCK}" ]; then
+              echo "| Test | Platform | Result | Duration |"
+              echo "|------|----------|--------|----------|"
+              echo "${TEST_JSON_BLOCK}" | grep -o '"test_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_names.txt
+              echo "${TEST_JSON_BLOCK}" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_platforms.txt
+              echo "${TEST_JSON_BLOCK}" | grep '"success"' | grep -oE '(true|false)' > /tmp/revyl_success.txt
+              echo "${TEST_JSON_BLOCK}" | grep -o '"duration"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_durations.txt
+
+              TEST_COUNT=$(wc -l < /tmp/revyl_names.txt | tr -d ' ')
+              if [ "${TEST_COUNT}" -gt 0 ]; then
+                paste -d$'\t' /tmp/revyl_names.txt /tmp/revyl_platforms.txt /tmp/revyl_success.txt /tmp/revyl_durations.txt | while IFS=$'\t' read -r t_name t_plat t_succ t_dur; do
+                  if [ "${t_succ}" = "true" ]; then
+                    result_cell="Passed"
+                  else
+                    result_cell="Failed"
+                  fi
+                  echo "| ${t_name} | ${t_plat} | ${result_cell} | ${t_dur:-—} |"
+                done
+              fi
+              rm -f /tmp/revyl_names.txt /tmp/revyl_platforms.txt /tmp/revyl_success.txt /tmp/revyl_durations.txt
+              echo ""
+            fi
+          else
+            echo "## Revyl Test${TEST_NAME:+: ${TEST_NAME}}"
+            echo ""
+            echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+            if [ -n "${TOTAL_STEPS}" ]; then
+              echo ""
+              echo "**Steps:** ${COMPLETED_STEPS:-0}/${TOTAL_STEPS} completed"
+            fi
+            echo ""
+          fi
+
+          if [ -n "${REPORT_LINK}" ]; then
+            echo "[View Full Report](${REPORT_LINK})"
+          fi
+        } >> "${GITHUB_STEP_SUMMARY}"
 
         exit $EXIT_CODE
 

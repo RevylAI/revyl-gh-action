@@ -38,6 +38,9 @@ outputs:
   success:
     description: 'Whether the workflow succeeded.'
     value: ${{ steps.run.outputs.success }}
+  status:
+    description: 'Final workflow status when available.'
+    value: ${{ steps.run.outputs.status }}
   task_id:
     description: 'The task identifier returned by the async API.'
     value: ${{ steps.run.outputs.task_id }}
@@ -87,10 +90,10 @@ runs:
         esac
 
         case "${{ runner.arch }}" in
-          X64)
+          X64|x64|AMD64|amd64)
             echo "arch=amd64" >> $GITHUB_OUTPUT
             ;;
-          ARM64)
+          ARM64|arm64)
             echo "arch=arm64" >> $GITHUB_OUTPUT
             ;;
           *)
@@ -100,40 +103,27 @@ runs:
         esac
 
     - name: Download Revyl CLI
+      id: download-cli
       shell: bash
       run: |
         OS="${{ steps.platform.outputs.os }}"
         ARCH="${{ steps.platform.outputs.arch }}"
         VERSION="${{ inputs.cli-version }}"
+        DOWNLOAD_DIR="${RUNNER_TEMP}/revyl-cli"
+        CLI_PATH="$(bash "${{ github.action_path }}/../scripts/download-cli.sh" \
+          --os "$OS" \
+          --arch "$ARCH" \
+          --version "$VERSION" \
+          --output-dir "$DOWNLOAD_DIR")"
 
-        EXT=""
-        if [ "$OS" = "windows" ]; then
-          EXT=".exe"
-        fi
-
-        BINARY="revyl-${OS}-${ARCH}${EXT}"
-
-        if [ "$VERSION" = "latest" ]; then
-          URL="https://github.com/RevylAI/revyl-cli/releases/latest/download/${BINARY}"
-        else
-          URL="https://github.com/RevylAI/revyl-cli/releases/download/${VERSION}/${BINARY}"
-        fi
-
-        echo "Downloading Revyl CLI from ${URL}..."
-        curl -sL -o revyl "${URL}" || {
-          echo "::error::Failed to download Revyl CLI from ${URL}"
-          exit 1
-        }
-        chmod +x revyl
-
-        echo "Revyl CLI downloaded successfully"
-        ./revyl version || true
+        echo "path=${CLI_PATH}" >> "$GITHUB_OUTPUT"
 
     - name: Execute workflow via CLI
       id: run
       shell: bash
       env:
         REVYL_API_KEY: ${{ env.REVYL_API_KEY }}
+        REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
           echo "::error::Missing REVYL_API_KEY"
@@ -159,6 +149,7 @@ runs:
         fi
 
         ARGS=""
+        REQUESTED_NO_WAIT="${{ inputs.no-wait }}"
 
         if [ "${{ inputs.retries }}" != "1" ]; then
           ARGS="${ARGS} --retries ${{ inputs.retries }}"
@@ -168,50 +159,49 @@ runs:
           ARGS="${ARGS} --timeout ${{ inputs.timeout }}"
         fi
 
-        REQUESTED_NO_WAIT="${{ inputs.no-wait }}"
+        if [ "${REQUESTED_NO_WAIT}" = "true" ]; then
+          ARGS="${ARGS} --no-wait"
+        fi
 
         BACKEND_URL="${{ inputs.backend-url }}"
-        if [ -n "${BACKEND_URL}" ]; then
+        DEFAULT_BACKEND_URL="https://backend.revyl.ai"
+        if [ -n "${BACKEND_URL}" ] && [ "${BACKEND_URL}" != "${DEFAULT_BACKEND_URL}" ]; then
           export REVYL_BACKEND_URL="${BACKEND_URL}"
           echo "Using backend override: ${BACKEND_URL}"
         fi
+
         export TERM=dumb
         export NO_COLOR=1
-        API_BASE="${REVYL_BACKEND_URL:-https://backend.revyl.ai}"
-        RETRIES_VALUE="${{ inputs.retries }}"
-        if ! [[ "${RETRIES_VALUE}" =~ ^[0-9]+$ ]] || [ "${RETRIES_VALUE}" -lt 1 ]; then
-          RETRIES_VALUE=1
-        fi
-        START_PAYLOAD="{\"workflow_id\":\"${WORKFLOW_ID}\",\"retries\":${RETRIES_VALUE}}"
-        echo "Starting workflow execution (workflow_id: ${WORKFLOW_ID}, retries: ${RETRIES_VALUE})"
 
+        ARGS="${ARGS} --json --github-actions --open=false"
+
+        echo "Running: ${REVYL_CLI_PATH} workflow run ${WORKFLOW_ID} ${ARGS}"
+
+        TMP_OUTPUT="$(mktemp)"
         set +e
-        START_RESPONSE_RAW="$(curl -sS -X POST "${API_BASE}/api/v1/execution/api/execute_workflow_id_async" \
-          -H "Authorization: Bearer ${REVYL_API_KEY}" \
-          -H "Content-Type: application/json" \
-          -H "X-Revyl-Client: github-action" \
-          -H "X-CI-System: github-actions" \
-          -d "${START_PAYLOAD}" 2>&1)"
-        START_EXIT_CODE=$?
+        "${REVYL_CLI_PATH}" workflow run "${WORKFLOW_ID}" ${ARGS} 2>&1 | tee "${TMP_OUTPUT}"
+        EXIT_CODE=${PIPESTATUS[0]}
         set -e
+        OUTPUT="$(cat "${TMP_OUTPUT}")"
+        rm -f "${TMP_OUTPUT}"
 
         sanitize_output() {
           local text="$1"
           printf '%s' "${text}" | tr -d '\r' | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g'
         }
 
-        OUTPUT="$(sanitize_output "${START_RESPONSE_RAW}")"
+        OUTPUT="$(sanitize_output "${OUTPUT}")"
 
         extract_string_from() {
           local text="$1"
           local key="$2"
-          echo "${text}" | tr -d '\r' | grep -o "\"${key}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' || true
+          echo "${text}" | grep -o "\"${key}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' || true
         }
 
         extract_number_from() {
           local text="$1"
           local key="$2"
-          echo "${text}" | tr -d '\r' | grep -oE "\"${key}\"[[:space:]]*:[[:space:]]*[0-9]+" | head -1 | sed -E 's/.*:[[:space:]]*([0-9]+)/\1/' || true
+          echo "${text}" | grep -oE "\"${key}\"[[:space:]]*:[[:space:]]*[0-9]+" | head -1 | sed -E 's/.*:[[:space:]]*([0-9]+)/\1/' || true
         }
 
         extract_string() {
@@ -232,56 +222,6 @@ runs:
           echo "${link}" | sed -nE 's/.*[?&]taskId=([^&[:space:]]+).*/\1/p' | head -1 || true
         }
 
-        is_terminal_status() {
-          case "$1" in
-            completed|failed|cancelled|timeout) return 0 ;;
-            *) return 1 ;;
-          esac
-        }
-
-        print_summary() {
-          echo "Workflow status: ${STATUS:-unknown}"
-          if [ -n "${TOTAL}" ]; then
-            TEST_SUMMARY="Workflow tests: ${COMPLETED:-0}/${TOTAL} completed"
-            if [ -n "${PASSED}" ] || [ -n "${FAILED}" ]; then
-              TEST_SUMMARY="${TEST_SUMMARY}, ${PASSED:-0} passed, ${FAILED:-0} failed"
-            fi
-            echo "${TEST_SUMMARY}"
-          fi
-          echo "Workflow success: ${SUCCESS_VALUE}"
-          if [ -n "${REPORT_LINK}" ]; then
-            echo "Report: ${REPORT_LINK}"
-          fi
-        }
-
-        emit_outputs() {
-          echo "success=${SUCCESS_VALUE}" >> $GITHUB_OUTPUT
-          if [ -n "${TASK_ID}" ]; then
-            echo "task_id=${TASK_ID}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${REPORT_LINK}" ]; then
-            echo "report_link=${REPORT_LINK}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${ERROR}" ]; then
-            echo "error_message=${ERROR}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${TOTAL}" ]; then
-            echo "total_tests=${TOTAL}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${COMPLETED}" ]; then
-            echo "completed_tests=${COMPLETED}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${PASSED}" ]; then
-            echo "passed_tests=${PASSED}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${FAILED}" ]; then
-            echo "failed_tests=${FAILED}" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "${DURATION}" ]; then
-            echo "execution_time=${DURATION}" >> $GITHUB_OUTPUT
-          fi
-        }
-
         REPORT_LINK=""
         STATUS=""
         TOTAL=""
@@ -290,12 +230,12 @@ runs:
         FAILED=""
         DURATION=""
         ERROR=""
-        SUCCESS_VALUE=""
 
         TASK_ID="$(extract_string task_id)"
         if [ -z "${TASK_ID}" ]; then
           TASK_ID="$(extract_string execution_id)"
         fi
+
         REPORT_LINK="$(extract_string report_link)"
         if [ -z "${REPORT_LINK}" ]; then
           REPORT_LINK="$(extract_string report_url)"
@@ -306,11 +246,22 @@ runs:
         if [ -z "${TASK_ID}" ] && [ -n "${REPORT_LINK}" ]; then
           TASK_ID="$(extract_task_id_from_link "${REPORT_LINK}")"
         fi
+
+        DASHBOARD_URL="${REVYL_APP_URL:-https://app.revyl.ai}"
         if [ -z "${REPORT_LINK}" ] && [ -n "${TASK_ID}" ]; then
-          REPORT_LINK="https://app.revyl.ai/workflows/report?taskId=${TASK_ID}"
+          REPORT_LINK="${DASHBOARD_URL}/workflows/report?taskId=${TASK_ID}"
         fi
 
         STATUS="$(extract_string status)"
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          SUCCESS_VALUE="true"
+          echo "success=true" >> $GITHUB_OUTPUT
+        else
+          SUCCESS_VALUE="false"
+          echo "success=false" >> $GITHUB_OUTPUT
+        fi
+
         ERROR="$(extract_string error)"
         if [ -z "${ERROR}" ]; then
           ERROR="$(extract_string message)"
@@ -318,171 +269,110 @@ runs:
         if [ -z "${ERROR}" ]; then
           ERROR="$(extract_string detail)"
         fi
-        TOTAL="$(extract_number total_tests)"
-        COMPLETED="$(extract_number completed_tests)"
-        PASSED="$(extract_number passed_tests)"
-        FAILED="$(extract_number failed_tests)"
-        DURATION="$(extract_string duration)"
-
-        if [ $START_EXIT_CODE -ne 0 ]; then
-          SUCCESS_VALUE="false"
-          STATUS="failed"
-          if [ -z "${ERROR}" ]; then
-            ERROR="workflow start request failed"
-          fi
-          print_summary
-          emit_outputs
-          exit $START_EXIT_CODE
+        if [ -n "${ERROR}" ]; then
+          echo "error_message=${ERROR}" >> $GITHUB_OUTPUT
         fi
 
-        echo "Workflow queued (task_id: ${TASK_ID})"
+        if [ -n "${TASK_ID}" ]; then
+          echo "task_id=${TASK_ID}" >> $GITHUB_OUTPUT
+        fi
+        if [ -n "${REPORT_LINK}" ]; then
+          echo "report_link=${REPORT_LINK}" >> $GITHUB_OUTPUT
+        fi
+
+        TOTAL="$(extract_number total_tests)"
+        if [ -n "${TOTAL}" ]; then
+          echo "total_tests=${TOTAL}" >> $GITHUB_OUTPUT
+        fi
+
+        COMPLETED="$(extract_number completed_tests)"
+        if [ -n "${COMPLETED}" ]; then
+          echo "completed_tests=${COMPLETED}" >> $GITHUB_OUTPUT
+        fi
+
+        PASSED="$(extract_number passed_tests)"
+        if [ -n "${PASSED}" ]; then
+          echo "passed_tests=${PASSED}" >> $GITHUB_OUTPUT
+        fi
+
+        FAILED="$(extract_number failed_tests)"
+        if [ -n "${FAILED}" ]; then
+          echo "failed_tests=${FAILED}" >> $GITHUB_OUTPUT
+        fi
+
+        if [ -z "${COMPLETED}" ] && { [ -n "${PASSED}" ] || [ -n "${FAILED}" ]; }; then
+          COMPLETED=$(( ${PASSED:-0} + ${FAILED:-0} ))
+          echo "completed_tests=${COMPLETED}" >> $GITHUB_OUTPUT
+        fi
+
+        DURATION="$(extract_string duration)"
+        if [ -n "${DURATION}" ]; then
+          echo "execution_time=${DURATION}" >> $GITHUB_OUTPUT
+        fi
+
+        if [ -z "${STATUS}" ]; then
+          if [ "${REQUESTED_NO_WAIT}" = "true" ] && [ "${SUCCESS_VALUE}" = "true" ]; then
+            STATUS="queued"
+          elif [ "${SUCCESS_VALUE}" = "true" ]; then
+            STATUS="completed"
+          else
+            STATUS="failed"
+          fi
+        fi
+
+        echo "status=${STATUS}" >> $GITHUB_OUTPUT
+        echo "Workflow status: ${STATUS}"
+        if [ -n "${TOTAL}" ]; then
+          echo "Workflow tests: ${COMPLETED:-0}/${TOTAL} completed, ${PASSED:-0} passed, ${FAILED:-0} failed"
+        fi
+        echo "Workflow success: ${SUCCESS_VALUE}"
         if [ -n "${REPORT_LINK}" ]; then
           echo "Report: ${REPORT_LINK}"
         fi
 
-        if [ "${REQUESTED_NO_WAIT}" = "true" ]; then
-          SUCCESS_VALUE="true"
-          if [ -z "${STATUS}" ]; then
-            STATUS="queued"
-          fi
-          print_summary
-          emit_outputs
-          exit 0
-        fi
+        # ── Job Summary ──────────────────────────────────────────────
+        WORKFLOW_NAME="$(extract_string_from "${OUTPUT}" "workflow_name")"
 
-        if [ -z "${TASK_ID}" ]; then
-          STATUS="failed"
-          SUCCESS_VALUE="false"
-          if [ -z "${ERROR}" ]; then
-            ERROR="workflow queued but no task_id was returned"
-          fi
-          print_summary
-          emit_outputs
-          exit 1
-        fi
+        {
+          echo "## Revyl Workflow${WORKFLOW_NAME:+: ${WORKFLOW_NAME}}"
+          echo ""
+          echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+          echo ""
 
-        TIMEOUT_SECONDS="${{ inputs.timeout }}"
-        if ! [[ "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ ]] || [ "${TIMEOUT_SECONDS}" -le 0 ]; then
-          TIMEOUT_SECONDS=3600
-        fi
-        POLL_INTERVAL=8
-        START_TIME="$(date +%s)"
-
-        echo "Workflow monitoring started (task_id: ${TASK_ID})"
-
-        while true; do
-          NOW="$(date +%s)"
-          ELAPSED="$((NOW - START_TIME))"
-          if [ "${ELAPSED}" -ge "${TIMEOUT_SECONDS}" ]; then
-            STATUS="failed"
-            SUCCESS_VALUE="false"
-            ERROR="Workflow report polling timed out after ${TIMEOUT_SECONDS}s"
-            break
+          if [ -n "${TOTAL}" ]; then
+            echo "### Test Results: ${PASSED:-0}/${TOTAL} passed"
+            echo ""
           fi
 
-          set +e
-          RAW_STATUS_OUTPUT="$(curl -sS -X GET "${API_BASE}/api/v1/workflows/status/status/${TASK_ID}" \
-            -H "Authorization: Bearer ${REVYL_API_KEY}" \
-            -H "X-Revyl-Client: github-action" \
-            -H "X-CI-System: github-actions" 2>&1)"
-          STATUS_EXIT=$?
-          set -e
-          STATUS_OUTPUT="$(sanitize_output "${RAW_STATUS_OUTPUT}")"
+          # Parse per-test results from the CLI JSON output if available.
+          # The CLI emits a "tests" array with objects containing test_name, status, platform, duration, success.
+          TEST_JSON_BLOCK="$(echo "${OUTPUT}" | sed -n '/"tests"/,/^[[:space:]]*\]/p')"
+          if [ -n "${TEST_JSON_BLOCK}" ]; then
+            echo "| Test | Platform | Result | Duration |"
+            echo "|------|----------|--------|----------|"
+            echo "${TEST_JSON_BLOCK}" | grep -o '"test_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_names.txt
+            echo "${TEST_JSON_BLOCK}" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_platforms.txt
+            echo "${TEST_JSON_BLOCK}" | grep '"success"' | grep -oE '(true|false)' > /tmp/revyl_success.txt
+            echo "${TEST_JSON_BLOCK}" | grep -o '"duration"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_durations.txt
 
-          if [ $STATUS_EXIT -ne 0 ]; then
-            echo "Workflow status: polling pending (${ELAPSED}s elapsed)"
-            sleep "${POLL_INTERVAL}"
-            continue
-          fi
-
-          if [ -z "${STATUS_OUTPUT}" ]; then
-            echo "Workflow status: polling pending (${ELAPSED}s elapsed)"
-            sleep "${POLL_INTERVAL}"
-            continue
-          fi
-
-          POLL_STATUS="$(extract_string_from "${STATUS_OUTPUT}" status)"
-          POLL_TOTAL="$(extract_number_from "${STATUS_OUTPUT}" total_tests)"
-          POLL_COMPLETED="$(extract_number_from "${STATUS_OUTPUT}" completed_tests)"
-          POLL_PASSED="$(extract_number_from "${STATUS_OUTPUT}" passed_tests)"
-          POLL_FAILED="$(extract_number_from "${STATUS_OUTPUT}" failed_tests)"
-          POLL_DURATION="$(extract_string_from "${STATUS_OUTPUT}" duration)"
-          POLL_ERROR="$(extract_string_from "${STATUS_OUTPUT}" error_message)"
-          if [ -z "${POLL_ERROR}" ]; then
-            POLL_ERROR="$(extract_string_from "${STATUS_OUTPUT}" message)"
-          fi
-          if [ -z "${POLL_ERROR}" ]; then
-            POLL_ERROR="$(extract_string_from "${STATUS_OUTPUT}" detail)"
-          fi
-          POLL_EXECUTION_ID="$(extract_string_from "${STATUS_OUTPUT}" execution_id)"
-
-          if [ -z "${POLL_STATUS}" ]; then
-            echo "Workflow status: polling pending (${ELAPSED}s elapsed)"
-            sleep "${POLL_INTERVAL}"
-            continue
+            TEST_COUNT=$(wc -l < /tmp/revyl_names.txt | tr -d ' ')
+            if [ "${TEST_COUNT}" -gt 0 ]; then
+              paste -d$'\t' /tmp/revyl_names.txt /tmp/revyl_platforms.txt /tmp/revyl_success.txt /tmp/revyl_durations.txt | while IFS=$'\t' read -r t_name t_plat t_succ t_dur; do
+                if [ "${t_succ}" = "true" ]; then
+                  result_cell="Passed"
+                else
+                  result_cell="Failed"
+                fi
+                echo "| ${t_name} | ${t_plat} | ${result_cell} | ${t_dur:-—} |"
+              done
+            fi
+            rm -f /tmp/revyl_names.txt /tmp/revyl_platforms.txt /tmp/revyl_success.txt /tmp/revyl_durations.txt
+            echo ""
           fi
 
-          if [ -n "${POLL_STATUS}" ]; then
-            STATUS="${POLL_STATUS}"
+          if [ -n "${REPORT_LINK}" ]; then
+            echo "[View Full Report](${REPORT_LINK})"
           fi
-          if [ -n "${POLL_TOTAL}" ]; then
-            TOTAL="${POLL_TOTAL}"
-          fi
-          if [ -n "${POLL_COMPLETED}" ]; then
-            COMPLETED="${POLL_COMPLETED}"
-          fi
-          if [ -n "${POLL_PASSED}" ]; then
-            PASSED="${POLL_PASSED}"
-          fi
-          if [ -n "${POLL_FAILED}" ]; then
-            FAILED="${POLL_FAILED}"
-          fi
-          if [ -n "${POLL_DURATION}" ]; then
-            DURATION="${POLL_DURATION}"
-          fi
-          if [ -n "${POLL_ERROR}" ]; then
-            ERROR="${POLL_ERROR}"
-          fi
-          if [ -z "${REPORT_LINK}" ] && [ -n "${POLL_EXECUTION_ID}" ]; then
-            REPORT_LINK="https://app.revyl.ai/workflows/report?taskId=${POLL_EXECUTION_ID}"
-          fi
+        } >> "${GITHUB_STEP_SUMMARY}"
 
-          DURATION_SEGMENT=""
-          if [ -n "${DURATION}" ]; then
-            DURATION_SEGMENT=" | duration: ${DURATION}"
-          fi
-
-          STATUS_LINE="Workflow status: ${STATUS:-unknown} | tests: ${COMPLETED:-0}/${TOTAL:-0} completed"
-          if [ -n "${PASSED}" ] || [ -n "${FAILED}" ]; then
-            STATUS_LINE="${STATUS_LINE} | passed: ${PASSED:-0} | failed: ${FAILED:-0}"
-          fi
-          STATUS_LINE="${STATUS_LINE}${DURATION_SEGMENT}"
-          echo "${STATUS_LINE}"
-
-          if is_terminal_status "${STATUS}"; then
-            break
-          fi
-
-          sleep "${POLL_INTERVAL}"
-        done
-
-        if [ -z "${REPORT_LINK}" ] && [ -n "${TASK_ID}" ]; then
-          REPORT_LINK="https://app.revyl.ai/workflows/report?taskId=${TASK_ID}"
-        fi
-
-        if [ -z "${STATUS}" ]; then
-          STATUS="failed"
-        fi
-        if [ "${STATUS}" = "completed" ] && [ "${FAILED:-0}" = "0" ]; then
-          SUCCESS_VALUE="true"
-        else
-          SUCCESS_VALUE="false"
-        fi
-
-        print_summary
-        emit_outputs
-
-        if [ "${SUCCESS_VALUE}" = "true" ]; then
-          exit 0
-        fi
-        exit 1
+        exit $EXIT_CODE
