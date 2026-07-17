@@ -3,7 +3,7 @@
 ## Quick Setup
 
 1. Copy `upload-only-expo.yml` to `.github/workflows/` in your repository
-2. Update `BUILD_VAR_ID` (marked with 📝 comments)
+2. Update `REVYL_APP_ID` (marked with 📝 comments)
 3. Add secrets to your GitHub repository
 4. Push to trigger the workflow
 
@@ -12,7 +12,7 @@
 - Builds iOS app with Expo EAS (15-20 minutes)
 - Converts .tar.gz to .zip format automatically
 - Uploads to Revyl with CI/CD metadata
-- Returns version-id for future testing
+- Returns build-id for future testing
 
 ## Required Setup
 
@@ -31,7 +31,7 @@ Add to your repository secrets (`Settings` → `Secrets and variables` →
 In the workflow file, update:
 
 ```yaml
-BUILD_VAR_ID: 'your-build-variable-id-here' # Get from build dashboard
+REVYL_APP_ID: 'your-revyl-app-id-here' # Get from your app's Builds page
 ```
 
 **Getting your Build ID** To get your build ID, create a new build, then copy
@@ -46,8 +46,7 @@ builds**.
 
 ## Troubleshooting
 
-**"Missing REVYL_API_KEY"** - Add the secret to your repository  
-**"Build variable not found"** - Update BUILD_VAR_ID and create build variable
-in Revyl  
-**"Failed to get build URL"** - Check EXPO_TOKEN and EAS credits  
+**"Missing REVYL_API_KEY"** - Add the secret to your repository
+**"App not found"** - Update `REVYL_APP_ID` and confirm the app exists in Revyl
+**"Failed to get build URL"** - Check EXPO_TOKEN and EAS credits
 **"Expo URL download failed"** - Verify EXPO_TOKEN has access to your builds

@@ -3,6 +3,94 @@ const httm = require('@actions/http-client')
 const fs = require('fs')
 const path = require('path')
 
+function splitRepository(repository) {
+  if (!repository || !repository.includes('/')) {
+    return { namespace: null, project: null }
+  }
+  const [namespace, ...rest] = repository.split('/')
+  return { namespace, project: rest.join('/') || null }
+}
+
+function readGithubEventPayload() {
+  if (!process.env.GITHUB_EVENT_PATH) {
+    return null
+  }
+  try {
+    return JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
+  } catch (e) {
+    core.info('Could not read GitHub event payload for SCM metadata')
+    return null
+  }
+}
+
+function inferPlatformFromFilePath(filePath) {
+  const lower = (filePath || '').toLowerCase()
+  if (lower.endsWith('.apk') || lower.endsWith('.aab')) {
+    return 'android'
+  }
+  if (
+    lower.endsWith('.ipa') ||
+    lower.endsWith('.app') ||
+    lower.endsWith('.app.zip') ||
+    lower.endsWith('.tar.gz') ||
+    lower.endsWith('.tgz')
+  ) {
+    return 'ios'
+  }
+  return null
+}
+
+function collectGithubActionsMetadata(filePath) {
+  const autoMetadata = {}
+  if (process.env.GITHUB_ACTIONS !== 'true') {
+    return autoMetadata
+  }
+
+  const eventData = readGithubEventPayload()
+  const repository =
+    eventData?.repository?.full_name || process.env.GITHUB_REPOSITORY
+  const { namespace, project } = splitRepository(repository)
+  const pullRequest = eventData?.pull_request
+  const pullRequestHeadSha = pullRequest?.head?.sha
+  const pullRequestBaseSha = pullRequest?.base?.sha
+  const headSha = pullRequestHeadSha || process.env.GITHUB_SHA
+
+  if (repository && process.env.GITHUB_RUN_ID) {
+    autoMetadata.ci_run_url = `https://github.com/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`
+  }
+  if (process.env.GITHUB_SHA) {
+    autoMetadata.commit_sha = process.env.GITHUB_SHA
+  }
+  if (process.env.GITHUB_REF_NAME) {
+    autoMetadata.branch = process.env.GITHUB_REF_NAME
+  }
+
+  if (namespace && project && headSha) {
+    autoMetadata.scm_provider = 'github'
+    autoMetadata.scm_namespace = namespace
+    autoMetadata.scm_project = project
+    autoMetadata.scm_head_sha = headSha
+    const inferredPlatform = inferPlatformFromFilePath(filePath)
+    if (inferredPlatform) {
+      autoMetadata.scm_platform = inferredPlatform
+    }
+  }
+
+  if (pullRequest?.number || eventData?.number) {
+    autoMetadata.pr_number = pullRequest?.number || eventData.number
+    autoMetadata.scm_review_number = pullRequest?.number || eventData.number
+  }
+  if (pullRequestBaseSha) {
+    autoMetadata.scm_base_sha = pullRequestBaseSha
+  }
+
+  autoMetadata.ci_system = 'github-actions'
+  autoMetadata.ci_build_number = process.env.GITHUB_RUN_NUMBER
+  autoMetadata.ci_build_attempt = process.env.GITHUB_RUN_ATTEMPT
+
+  return autoMetadata
+}
+
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -65,43 +153,8 @@ async function run() {
       }
     }
 
-    // Automatically inject GitHub Actions CI/CD metadata
-    const autoMetadata = {}
-    if (process.env.GITHUB_ACTIONS === 'true') {
-      // Only inject if we're running in GitHub Actions
-      if (process.env.GITHUB_REPOSITORY) {
-        autoMetadata.ci_run_url = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-      }
-      if (process.env.GITHUB_SHA) {
-        autoMetadata.commit_sha = process.env.GITHUB_SHA
-      }
-      if (process.env.GITHUB_REF_NAME) {
-        autoMetadata.branch = process.env.GITHUB_REF_NAME
-      }
-      if (
-        process.env.GITHUB_EVENT_NAME === 'pull_request' &&
-        process.env.GITHUB_EVENT_PATH
-      ) {
-        try {
-          // Try to extract PR number from event
-          const fs = require('fs')
-          const eventData = JSON.parse(
-            fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')
-          )
-          if (eventData.number) {
-            autoMetadata.pr_number = eventData.number
-          }
-        } catch (e) {
-          // If we can't read the event file, that's okay - just skip PR number
-          core.info('Could not extract PR number from GitHub event')
-        }
-      }
-
-      // Add CI system identification
-      autoMetadata.ci_system = 'github-actions'
-      autoMetadata.ci_build_number = process.env.GITHUB_RUN_NUMBER
-      autoMetadata.ci_build_attempt = process.env.GITHUB_RUN_ATTEMPT
-    }
+    // Automatically inject GitHub Actions CI/CD + SCM metadata.
+    const autoMetadata = collectGithubActionsMetadata(filePath)
 
     // Merge auto metadata with user metadata (user metadata takes precedence)
     const finalMetadata = { ...autoMetadata, ...parsedMetadata }
@@ -143,7 +196,7 @@ async function run() {
       // Handle Expo URL upload using the from-url endpoint
       core.info(`Uploading build from Expo URL: ${expoUrl}`)
 
-      const fromUrlEndpoint = `/api/v1/builds/apps/${resolvedAppId}/builds/from-url`
+      const fromUrlEndpoint = `/api/v1/apps/${resolvedAppId}/builds/from-url`
       const fromUrlBody = {
         version: version,
         from_url: expoUrl,
@@ -183,7 +236,7 @@ async function run() {
       // if (!packageId) {
       try {
         core.info('Attempting to extract package ID from Expo build...')
-        const extractEndpoint = `/api/v1/builds/builds/${versionId}/extract-package-id`
+        const extractEndpoint = `/api/v1/apps/builds/${versionId}/extract-package-id`
         const extractRes = await client.postJson(
           `${backendUrl}${extractEndpoint}`,
           {}
@@ -211,7 +264,7 @@ async function run() {
       }
 
       const fileName = path.basename(filePath)
-      const uploadUrlEndpoint = `/api/v1/builds/apps/${resolvedAppId}/builds/upload-url`
+      const uploadUrlEndpoint = `/api/v1/apps/${resolvedAppId}/builds/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
         file_name: fileName
@@ -276,7 +329,7 @@ async function run() {
       // Extract package ID if possible
       try {
         core.info('Attempting to extract package ID...')
-        const extractEndpoint = `/api/v1/builds/builds/${versionId}/extract-package-id`
+        const extractEndpoint = `/api/v1/apps/builds/${versionId}/extract-package-id`
         const extractRes = await client.postJson(
           `${backendUrl}${extractEndpoint}`,
           {}
@@ -296,7 +349,7 @@ async function run() {
 
       // Complete the upload
       core.info('Completing upload...')
-      const completeEndpoint = `/api/v1/builds/builds/${versionId}/complete-upload`
+      const completeEndpoint = `/api/v1/apps/builds/${versionId}/complete-upload`
 
       // Add file_name to metadata so backend uses correct S3 key
       const completeMetadata = {
@@ -354,5 +407,7 @@ async function run() {
 }
 
 module.exports = {
-  run
+  run,
+  collectGithubActionsMetadata,
+  inferPlatformFromFilePath
 }

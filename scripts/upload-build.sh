@@ -5,7 +5,7 @@
 # Simple script to upload builds to Revyl using curl.
 #
 # Usage:
-#   ./upload-build.sh <build-var-id> <file-path> [version]
+#   ./upload-build.sh <app-id> <file-path> [version]
 #
 # Environment:
 #   REVYL_API_KEY - Your Revyl API key (required)
@@ -26,10 +26,10 @@ if [ $# -lt 2 ]; then
     echo -e "${BLUE}Revyl Build Upload Script${NC}"
     echo ""
     echo "Usage:"
-    echo "  $0 <build-var-id> <file-path> [version]"
+    echo "  $0 <app-id> <file-path> [version]"
     echo ""
     echo "Arguments:"
-    echo "  build-var-id   Your Revyl build variable ID"
+    echo "  app-id         Your Revyl app ID"
     echo "  file-path      Path to build file (.apk, .zip, .ipa)"
     echo "  version        Version string (optional, defaults to timestamp)"
     echo ""
@@ -46,7 +46,8 @@ if [ $# -lt 2 ]; then
     exit 0
 fi
 
-BUILD_VAR_ID="$1"
+APP_ID="$1"
+BUILD_VAR_ID="$APP_ID"
 FILE_PATH="$2"
 VERSION="${3:-build-$(date +%s)}"
 
@@ -67,12 +68,12 @@ FILE_SIZE=$(ls -lh "$FILE_PATH" | awk '{print $5}')
 echo ""
 echo -e "📦 Uploading ${BLUE}$FILE_NAME${NC} ($FILE_SIZE)"
 echo "   Version: $VERSION"
-echo "   Build Var: $BUILD_VAR_ID"
+echo "   App ID: $APP_ID"
 echo ""
 
 # Upload using stream-upload endpoint
 RESPONSE=$(curl -s -w "\n%{http_code}" \
-    -X POST "${BACKEND_URL}/api/v1/builds/vars/${BUILD_VAR_ID}/versions/stream-upload?version=${VERSION}" \
+    -X POST "${BACKEND_URL}/api/v1/apps/${BUILD_VAR_ID}/builds/stream-upload?version=${VERSION}" \
     -H "Authorization: Bearer ${REVYL_API_KEY}" \
     -F "file=@${FILE_PATH}")
 
@@ -80,12 +81,12 @@ HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" = "200" ]; then
-    VERSION_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    BUILD_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
     PACKAGE_NAME=$(echo "$BODY" | grep -o '"package_name":"[^"]*"' | head -1 | cut -d'"' -f4)
     
     echo -e "${GREEN}✅ Upload successful!${NC}"
     echo ""
-    echo "   Version ID: $VERSION_ID"
+    echo "   Build ID: $BUILD_ID"
     echo "   Version: $VERSION"
     if [ -n "$PACKAGE_NAME" ] && [ "$PACKAGE_NAME" != "null" ]; then
         echo "   Package: $PACKAGE_NAME"

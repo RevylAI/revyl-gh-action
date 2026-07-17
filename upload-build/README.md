@@ -1,6 +1,6 @@
 # Upload Build Action
 
-This GitHub Action uploads build artifacts to the CogniSim build system. It
+This GitHub Action uploads build artifacts to Revyl. It
 supports both direct file uploads and Expo URL ingestion.
 
 ## Features
@@ -9,7 +9,7 @@ supports both direct file uploads and Expo URL ingestion.
 - Download and upload builds from Expo URLs
 - Automatic package ID extraction for mobile apps
 - Support for custom metadata and headers
-- Integration with CogniSim build variable system
+- Integration with Revyl app build streams
 
 ## Usage
 
@@ -21,7 +21,7 @@ supports both direct file uploads and Expo URL ingestion.
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
   with:
-    build-var-id: 'your-build-variable-id'
+    app-id: 'your-revyl-app-id'
     version: '1.0.0'
     file-path: './dist/app.apk'
     metadata: '{"build_number": "123", "commit_sha": "${{ github.sha }}"}'
@@ -35,7 +35,7 @@ supports both direct file uploads and Expo URL ingestion.
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
   with:
-    build-var-id: 'your-build-variable-id'
+    app-id: 'your-revyl-app-id'
     version: '1.0.0'
     expo-url: 'https://expo.dev/artifacts/eas/...'
     expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
@@ -46,14 +46,14 @@ supports both direct file uploads and Expo URL ingestion.
 
 | Input          | Description                                              | Required | Default                    |
 | -------------- | -------------------------------------------------------- | -------- | -------------------------- |
-| `build-var-id` | The build variable ID to upload the version to           | ✅       |                            |
+| `app-id`       | The Revyl app ID to upload the build to                  | ✅       |                            |
+| `build-var-id` | Deprecated alias for `app-id`                            | ❌       |                            |
 | `version`      | Version string for this build (must be unique)           | ✅       |                            |
 | `file-path`    | Path to the build artifact file                          | ❌\*     |                            |
 | `expo-url`     | Expo build URL to download and upload                    | ❌\*     |                            |
 | `expo-headers` | JSON string of headers for Expo URL download             | ❌       |                            |
 | `metadata`     | JSON string of additional metadata                       | ❌       |                            |
 | `package-name` | Package name/identifier (auto-extracted if not provided) | ❌       |                            |
-| `backend-url`  | CogniSim backend URL                                     | ❌       | `https://backend.revyl.ai` |
 | `timeout`      | Timeout in seconds for upload operation                  | ❌       | `1800`                     |
 
 \*Either `file-path` or `expo-url` must be provided (mutually exclusive).
@@ -63,7 +63,8 @@ supports both direct file uploads and Expo URL ingestion.
 | Output          | Description                                      |
 | --------------- | ------------------------------------------------ |
 | `success`       | Whether the upload was successful                |
-| `version-id`    | The ID of the created build version              |
+| `build-id`      | The ID of the created build                      |
+| `version-id`    | Deprecated alias for `build-id`                  |
 | `version`       | The version string of the uploaded build         |
 | `package-id`    | The extracted package ID from the build artifact |
 | `upload-time`   | Time taken for the upload operation in seconds   |
@@ -71,7 +72,7 @@ supports both direct file uploads and Expo URL ingestion.
 
 ## Environment Variables
 
-- `REVYL_API_KEY`: Required. Your CogniSim API key (get from revyl settings)
+- `REVYL_API_KEY`: Required. Your Revyl API key
 
 ## Examples
 
@@ -102,12 +103,12 @@ jobs:
           cd android
           ./gradlew assembleRelease
 
-      - name: Upload to CogniSim
+      - name: Upload to Revyl
         uses: ./actions/upload-build
         env:
           REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
         with:
-          build-var-id: ${{ vars.ANDROID_BUILD_VAR_ID }}
+          app-id: ${{ vars.REVYL_ANDROID_APP_ID }}
           version: 'v${{ github.run_number }}'
           file-path: './android/app/build/outputs/apk/release/app-release.apk'
           metadata: |
@@ -149,12 +150,12 @@ jobs:
           BUILD_URL=$(eas build:list --platform=android --limit=1 --json | jq -r '.[0].artifacts.buildUrl')
           echo "url=$BUILD_URL" >> $GITHUB_OUTPUT
 
-      - name: Upload to CogniSim
+      - name: Upload to Revyl
         uses: ./actions/upload-build
         env:
           REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
         with:
-          build-var-id: ${{ vars.ANDROID_BUILD_VAR_ID }}
+          app-id: ${{ vars.REVYL_ANDROID_APP_ID }}
           version: 'expo-${{ github.run_number }}'
           expo-url: ${{ steps.build-url.outputs.url }}
           expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
@@ -174,7 +175,7 @@ The action will fail if:
 - Neither `file-path` nor `expo-url` is provided
 - Both `file-path` and `expo-url` are provided
 - The specified file doesn't exist (for file uploads)
-- The API returns an error (invalid build variable ID, duplicate version, etc.)
+- The API returns an error (invalid app ID, duplicate version, etc.)
 - Network issues during upload
 
 Check the action logs and the `error-message` output for detailed error

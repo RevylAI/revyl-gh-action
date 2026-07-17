@@ -45,7 +45,7 @@ generation.
   id: upload-build
   uses: ./actions/upload-build
   with:
-    build-var-id: 'your-build-var-id'
+    app-id: 'your-revyl-app-id'
     version: '${{ github.sha }}'
     file-path: 'path/to/your/build.apk'
   env:
@@ -55,7 +55,7 @@ generation.
   uses: ./actions/run-test
   with:
     test-id: 'your-test-id'
-    build-version-id: ${{ steps.upload-build.outputs.version-id }}
+    build-id: ${{ steps.upload-build.outputs.build-id }}
     timeout: '1800'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}

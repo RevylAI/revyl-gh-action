@@ -1,9 +1,10 @@
-### Run Revyl workflow locally with act
+# Run Revyl Workflow Locally With act
 
 - Use the existing workflow at `./.github/workflows/revyl-workflow-act.yml`.
 - Provide `REVYL_API_KEY` as a secret and pass your workflow id.
 - This path uses the action default `cli-version: latest`, so it validates the
   latest released Revyl CLI, not an unreleased local branch build.
+- Keep `secrets.env` local-only. Never commit API keys.
 
 ```bash
 # From repo root
@@ -62,5 +63,3 @@ jobs:
           echo "Success: ${{ steps.revyl.outputs.success }}"
           echo "Totals: ${{ steps.revyl.outputs.completed_tests }}/${{ steps.revyl.outputs.total_tests }}"
 ```
-
-

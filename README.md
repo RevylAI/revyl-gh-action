@@ -19,7 +19,7 @@ monitoring and comprehensive reporting.
 2. **Add it as a secret** named `REVYL_API_KEY` in your GitHub repository
 3. **Copy a workflow** from our [examples folder](./examples/) that matches your
    framework
-4. **Update the configuration** (build variable ID, test ID, file paths)
+4. **Update the configuration** (app ID, test ID, file paths)
 5. **Push and watch it work!** 🚀
 
 **🎯 New to Revyl Actions?** Start with our
@@ -31,19 +31,19 @@ The simplest way to upload a build to Revyl:
 
 ```bash
 # Android APK
-curl -X POST "https://backend.revyl.ai/api/v1/builds/vars/{BUILD_VAR_ID}/versions/stream-upload?version={VERSION}" \
+curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}" \
   -H "Authorization: Bearer $REVYL_API_KEY" \
   -F "file=@./app.apk"
 
 # iOS App (zip)
-curl -X POST "https://backend.revyl.ai/api/v1/builds/vars/{BUILD_VAR_ID}/versions/stream-upload?version={VERSION}" \
+curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}" \
   -H "Authorization: Bearer $REVYL_API_KEY" \
   -F "file=@./MyApp.zip"
 ```
 
 **Parameters:**
 
-- `BUILD_VAR_ID` - Your build variable ID (from Revyl dashboard)
+- `APP_ID` - Your Revyl app ID (from the app's Builds page)
 - `VERSION` - Version string (e.g., `1.0.0`, `build-123`)
 - `REVYL_API_KEY` - Your API key
 
@@ -69,10 +69,10 @@ We also provide helper scripts in `./scripts/`:
 
 ```bash
 # Bash script
-./scripts/upload-build.sh <build-var-id> <file-path> [version]
+./scripts/upload-build.sh <app-id> <file-path> [version]
 
 # Node.js script
-node scripts/upload-local-build.js --build-var-id <id> --file <path> --version <ver>
+node scripts/upload-local-build.js --app-id <id> --file <path> --version <ver>
 ```
 
 ## Available Actions
@@ -153,7 +153,8 @@ injection and multi-source support.
 
 | Parameter      | Required | Description                                              | Example                               |
 | -------------- | -------- | -------------------------------------------------------- | ------------------------------------- |
-| `build-var-id` | Yes      | The build variable ID to upload to                       | `abc-123-def`                         |
+| `app-id`       | Yes      | The Revyl app ID to upload to                            | `abc-123-def`                         |
+| `build-var-id` | No       | Deprecated alias for `app-id`                            | `abc-123-def`                         |
 | `version`      | Yes      | Version string for this build (must be unique)           | `1.0.0` or `${{ github.sha }}`        |
 | `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                    | `./dist/app.apk`                      |
 | `expo-url`     | No\*     | Expo build URL to download from                          | `https://expo.dev/artifacts/...`      |
@@ -191,7 +192,7 @@ When using Expo/EAS builds, you'll need:
 - name: Upload to Revyl
   uses: RevylAI/revyl-gh-action/upload-build@main
   with:
-    build-var-id: ${{ env.BUILD_VAR_ID }}
+    app-id: ${{ vars.REVYL_APP_ID }}
     version: ${{ github.sha }}
     expo-url: ${{ env.BUILD_URL }} # From EAS build output
     expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
@@ -238,7 +239,7 @@ jobs:
         id: upload-build
         uses: RevylAI/revyl-gh-action/upload-build@main
         with:
-          build-var-id: ${{ env.BUILD_VAR_ID }}
+          app-id: ${{ vars.REVYL_APP_ID }}
           version: ${{ github.sha }}
           file-path: path/to/your/app.apk
         env:
@@ -248,7 +249,7 @@ jobs:
         uses: RevylAI/revyl-gh-action/run-test@main
         with:
           test-id: ${{ env.TEST_ID }}
-          build-version-id: ${{ steps.upload-build.outputs.version-id }}
+          build-id: ${{ steps.upload-build.outputs.build-id }}
         env:
           REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
@@ -261,7 +262,7 @@ jobs:
 - name: Upload Build
   uses: RevylAI/revyl-gh-action/upload-build@main
   with:
-    build-var-id: 'your-build-variable-id'
+    app-id: 'your-revyl-app-id'
     version: '1.0.0'
     file-path: './dist/app.apk'
   env:
@@ -271,7 +272,7 @@ jobs:
 - name: Upload Expo Build
   uses: RevylAI/revyl-gh-action/upload-build@main
     with:
-    build-var-id: 'your-build-variable-id'
+    app-id: 'your-revyl-app-id'
     version: '1.0.0'
     expo-url: 'https://expo.dev/artifacts/eas/...' # .tar.gz files are handled automatically
     expo-headers: '{"Authorization": "Bearer ${{ secrets.EXPO_TOKEN }}"}'
@@ -301,12 +302,12 @@ jobs:
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
-# With specific build version (from upload-build output)
+# With specific build (from upload-build output)
 - name: Run Test with Specific Build
   uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
-    build-version-id: ${{ steps.upload.outputs.version-id }}
+    build-id: ${{ steps.upload.outputs.build-id }}
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
@@ -338,7 +339,8 @@ steps:
 | Output          | Description                          | Example Usage                               |
 | --------------- | ------------------------------------ | ------------------------------------------- |
 | `success`       | Whether upload was successful        | `${{ steps.upload.outputs.success }}`       |
-| `version-id`    | **ID of the created build version**  | `${{ steps.upload.outputs.version-id }}`    |
+| `build-id`      | **ID of the created build**          | `${{ steps.upload.outputs.build-id }}`      |
+| `version-id`    | Deprecated alias for `build-id`      | `${{ steps.upload.outputs.version-id }}`    |
 | `version`       | Version string of the uploaded build | `${{ steps.upload.outputs.version }}`       |
 | `package-id`    | Extracted package ID from the build  | `${{ steps.upload.outputs.package-id }}`    |
 | `upload-time`   | Time taken for upload in seconds     | `${{ steps.upload.outputs.upload-time }}`   |
@@ -380,7 +382,7 @@ steps:
   if: steps.upload.outputs.success == 'true'
   run: |
     echo "Build uploaded successfully!"
-    echo "Version ID: ${{ steps.upload.outputs.version-id }}"
+    echo "Build ID: ${{ steps.upload.outputs.build-id }}"
     echo "Package: ${{ steps.upload.outputs.package-id }}"
 
 - name: Run Test
@@ -388,7 +390,7 @@ steps:
   uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: ${{ env.TEST_ID }}
-    build-version-id: ${{ steps.upload.outputs.version-id }}
+    build-id: ${{ steps.upload.outputs.build-id }}
   # ... configuration ...
 
 - name: Share Test Results

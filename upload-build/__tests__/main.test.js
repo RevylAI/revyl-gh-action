@@ -1,4 +1,4 @@
-const { run } = require('../src/main')
+const { run, collectGithubActionsMetadata } = require('../src/main')
 const core = require('@actions/core')
 const httm = require('@actions/http-client')
 const fs = require('fs')
@@ -67,6 +67,14 @@ describe('Upload Build Action', () => {
 
   afterEach(() => {
     delete process.env.REVYL_API_KEY
+    delete process.env.GITHUB_ACTIONS
+    delete process.env.GITHUB_REPOSITORY
+    delete process.env.GITHUB_RUN_ID
+    delete process.env.GITHUB_SHA
+    delete process.env.GITHUB_REF_NAME
+    delete process.env.GITHUB_EVENT_PATH
+    delete process.env.GITHUB_RUN_NUMBER
+    delete process.env.GITHUB_RUN_ATTEMPT
   })
 
   test('should fail when no API key is provided', async () => {
@@ -136,7 +144,7 @@ describe('Upload Build Action', () => {
     await run()
 
     expect(mockPostJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/builds/apps/test-build-var-id/builds/from-url',
+      'https://backend.revyl.ai/api/v1/apps/test-build-var-id/builds/from-url',
       {
         version: '1.0.0',
         from_url: 'https://expo.dev/build/123',
@@ -165,8 +173,8 @@ describe('Upload Build Action', () => {
     fs.readFileSync.mockReturnValue(Buffer.from('fake-file-content'))
     fs.createReadStream.mockReturnValue('fake-stream')
 
-    // Mock get upload URL response
-    mockGetJson.mockResolvedValue({
+    // Mock upload URL response
+    mockPostJson.mockResolvedValueOnce({
       statusCode: 200,
       result: {
         version_id: 'version-123',
@@ -195,8 +203,9 @@ describe('Upload Build Action', () => {
     await run()
 
     expect(fs.existsSync).toHaveBeenCalledWith('/path/to/file.apk')
-    expect(mockGetJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/builds/apps/test-build-var-id/builds/upload-url?version=1.0.0&file_name=file.apk'
+    expect(mockPostJson).toHaveBeenCalledWith(
+      'https://backend.revyl.ai/api/v1/apps/test-build-var-id/builds/upload-url?version=1.0.0&file_name=file.apk',
+      {}
     )
     expect(mockSendStream).toHaveBeenCalledWith(
       'PUT',
@@ -227,5 +236,43 @@ describe('Upload Build Action', () => {
     expect(core.setFailed).toHaveBeenCalledWith(
       'Invalid JSON in metadata: Unexpected token \'i\', "invalid-json" is not valid JSON'
     )
+  })
+
+  test('should use pull request head SHA for SCM metadata', () => {
+    process.env.GITHUB_ACTIONS = 'true'
+    process.env.GITHUB_REPOSITORY = 'acme/mobile-app'
+    process.env.GITHUB_RUN_ID = '12345'
+    process.env.GITHUB_SHA = 'merge-sha'
+    process.env.GITHUB_REF_NAME = '7/merge'
+    process.env.GITHUB_EVENT_PATH = '/tmp/event.json'
+    process.env.GITHUB_RUN_NUMBER = '55'
+    process.env.GITHUB_RUN_ATTEMPT = '2'
+
+    fs.readFileSync.mockReturnValue(
+      JSON.stringify({
+        number: 42,
+        repository: { full_name: 'acme/mobile-app' },
+        pull_request: {
+          number: 42,
+          head: { sha: 'true-head-sha' },
+          base: { sha: 'base-sha' }
+        }
+      })
+    )
+
+    const metadata = collectGithubActionsMetadata('/tmp/app.apk')
+
+    expect(metadata).toMatchObject({
+      scm_provider: 'github',
+      scm_namespace: 'acme',
+      scm_project: 'mobile-app',
+      scm_review_number: 42,
+      scm_head_sha: 'true-head-sha',
+      scm_base_sha: 'base-sha',
+      scm_platform: 'android',
+      commit_sha: 'merge-sha',
+      ci_system: 'github-actions',
+      ci_run_url: 'https://github.com/acme/mobile-app/actions/runs/12345'
+    })
   })
 })

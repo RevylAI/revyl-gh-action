@@ -31,9 +31,9 @@ jobs:
       # Get this from: https://expo.dev/accounts/[username]/settings/access-tokens
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 🏗️ REQUIRED: Replace with your Revyl build variable ID
-      # Get this from your Revyl dashboard when you create a build variable
-      BUILD_VAR_ID: 'your-build-variable-id-here' # 📝 UPDATE THIS
+      # 🏗️ REQUIRED: Replace with your Revyl app ID
+      # Get this from your Revyl app's Builds page
+      REVYL_APP_ID: 'your-revyl-app-id-here' # 📝 UPDATE THIS
 
       # 🏷️ Version naming - using git commit SHA for uniqueness
       # You can customize this format (e.g., v1.0.${{ github.run_number }})
@@ -89,8 +89,8 @@ jobs:
       - name: ⬆️ Upload Build to Revyl
         uses: RevylAI/revyl-gh-action/upload-build@main
         with:
-          # Which Revyl build variable to upload to
-          build-var-id: ${{ env.BUILD_VAR_ID }}
+          # Which Revyl app to upload to
+          app-id: ${{ env.REVYL_APP_ID }}
 
           # Version identifier for this build (must be unique)
           version: ${{ env.VERSION }}
@@ -111,7 +111,7 @@ jobs:
         #    - branch: ${{ github.ref_name }}
         #    - ci_run_url: Link to this GitHub Actions run
         #    - ci_system: "github-actions"
-        # ✅ Returns a version-id that you can use for testing later
+        # ✅ Returns a build-id that you can use for testing later
 
       # 🎊 That's it! Your build is now stored in Revyl and ready for testing.
       #

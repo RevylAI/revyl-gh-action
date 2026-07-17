@@ -6,8 +6,8 @@
  * Simple script to upload builds to Revyl using the stream-upload endpoint.
  *
  * Usage:
- *   node upload-local-build.js --platform ios --build-var-id <id> --version 1.0.0 --file ./app.zip
- *   node upload-local-build.js --platform android --build-var-id <id> --version 1.0.0 --file ./app.apk
+ *   node upload-local-build.js --platform ios --app-id <id> --version 1.0.0 --file ./app.zip
+ *   node upload-local-build.js --platform android --app-id <id> --version 1.0.0 --file ./app.apk
  *
  * Environment variables:
  *   REVYL_API_KEY - Your Revyl API key (required)
@@ -50,14 +50,15 @@ function parseArgs() {
   return parsed
 }
 
-function streamUpload(filePath, buildVarId, version, apiKey) {
+function streamUpload(filePath, appId, version, apiKey) {
   return new Promise((resolve, reject) => {
     const fileName = path.basename(filePath)
     const fileSize = fs.statSync(filePath).size
     const boundary = `----RevylUpload${Date.now()}`
+    const buildVarId = appId
 
     const url = new URL(
-      `${BACKEND_URL}/api/v1/builds/apps/${buildVarId}/builds/stream-upload?version=${encodeURIComponent(
+      `${BACKEND_URL}/api/v1/apps/${buildVarId}/builds/stream-upload?version=${encodeURIComponent(
         version
       )}`
     )
@@ -116,31 +117,33 @@ async function main() {
   const args = parseArgs()
 
   // Show help
-  if (!args['build-var-id'] || !args.file) {
+  const appId = args['app-id'] || args['build-var-id']
+  if (!appId || !args.file) {
     console.log(`
 Revyl Build Upload Script
 
 USAGE:
-  node upload-local-build.js --build-var-id <id> --file <path> [--version <ver>]
+  node upload-local-build.js --app-id <id> --file <path> [--version <ver>]
 
 REQUIRED:
-  --build-var-id <id>    Your Revyl build variable ID
+  --app-id <id>          Your Revyl app ID
   --file <path>          Path to build file (.apk, .zip, .ipa)
 
 OPTIONAL:
   --version <version>    Version string (default: timestamp)
+  --build-var-id <id>    Deprecated alias for --app-id
 
 ENVIRONMENT:
   REVYL_API_KEY          Your Revyl API key (required)
   REVYL_BACKEND_URL      Backend URL (default: https://backend.revyl.ai)
 
 EXAMPLES:
-  node upload-local-build.js --build-var-id abc-123 --file ./app.apk --version 1.0.0
-  node upload-local-build.js --build-var-id abc-123 --file ./MyApp.zip
+  node upload-local-build.js --app-id abc-123 --file ./app.apk --version 1.0.0
+  node upload-local-build.js --app-id abc-123 --file ./MyApp.zip
 
 Get API key: https://auth.revyl.ai/account/api_keys
 `)
-    process.exit(args['build-var-id'] ? 1 : 0)
+    process.exit(appId ? 1 : 0)
   }
 
   if (!process.env.REVYL_API_KEY) {
@@ -161,14 +164,14 @@ Get API key: https://auth.revyl.ai/account/api_keys
     `\n📦 Uploading ${fileName} (${Math.round(fileSize / 1024 / 1024)}MB)`
   )
   console.log(`   Version: ${version}`)
-  console.log(`   Build Var: ${args['build-var-id']}\n`)
+  console.log(`   App ID: ${appId}\n`)
 
   const startTime = Date.now()
 
   try {
     const result = await streamUpload(
       args.file,
-      args['build-var-id'],
+      appId,
       version,
       process.env.REVYL_API_KEY
     )
@@ -176,7 +179,7 @@ Get API key: https://auth.revyl.ai/account/api_keys
     const elapsed = Math.round((Date.now() - startTime) / 1000)
 
     console.log('✅ Upload successful!\n')
-    console.log(`   Version ID: ${result.id}`)
+    console.log(`   Build ID: ${result.id}`)
     console.log(`   Version: ${result.version}`)
     if (result.package_name) {
       console.log(`   Package: ${result.package_name}`)
