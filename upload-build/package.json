@@ -1,7 +1,7 @@
 {
   "name": "upload-build-action",
   "description": "GitHub Action to upload builds to CogniSim",
-  "version": "1.0.0",
+  "version": "2.0.4",
   "author": "CogniSim",
   "private": true,
   "homepage": "https://github.com/revyl/revyl-gh-action#readme",

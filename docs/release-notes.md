@@ -1,5 +1,18 @@
 # Release Notes
 
+## v2.0.4 - Canonical Build API for upload-build (2026-07-18)
+
+### 🔧 Changes
+
+**upload-build: migrate off the deprecated `/api/v1/builds` mount**
+
+- The published `v2` bundle still called the deprecated `/api/v1/builds/*`
+  endpoints; this release ships the already-migrated source, which calls the
+  canonical `/api/v1/apps/*` build endpoints.
+- No input/output contract changes — drop-in for `@v2` users.
+
+---
+
 ## v2.0.0 - Unified Monitoring Endpoint (2025-01-21)
 
 ### 🚀 Major Changes
