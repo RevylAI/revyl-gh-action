@@ -92,47 +92,47 @@ retries, and shareable report generation.
 
 **Input Parameters:**
 
-| Parameter          | Required | Description                                                      | Default |
-| ------------------ | -------- | ---------------------------------------------------------------- | ------- |
-| `test-id`          | No\*     | The ID of the test to run                                        | -       |
-| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)                        | -       |
-| `workflow_id`      | No       | Deprecated alias for `workflow-id`                               | -       |
-| `build-id`         | No       | ID of a specific build to use                                     | -       |
-| `build-version-id` | No       | Deprecated alias for `build-id`                                   | -       |
-| `retries`          | No       | Number of retries if test fails                                  | -       |
-| `timeout`          | No       | Timeout in seconds for the test execution                        | `3600`  |
-| `cli-version`      | No       | Revyl CLI version used by the action runtime                     | `latest` |
+| Parameter          | Required | Description                                  | Default  |
+| ------------------ | -------- | -------------------------------------------- | -------- |
+| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -        |
+| `test-id`          | No\*     | The ID of the test to run                    | -        |
+| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -        |
+| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -        |
+| `build-id`         | No       | ID of a specific build to use                | -        |
+| `build-version-id` | No       | Deprecated alias for `build-id`              | -        |
+| `retries`          | No       | Number of retries if test fails              | -        |
+| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`   |
+| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest` |
 
-\* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id` is accepted as a deprecated alias.
+\* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id`
+is accepted as a deprecated alias.
 
 ### Run Workflow Action (`run-workflow`)
 
-Clean, dedicated entrypoint for executing a Revyl workflow by `workflow-id`.
-This is a thin wrapper around the core runner with workflow-focused
-inputs/outputs.
-For backward compatibility, `workflow_id` is accepted as a deprecated alias.
+Clean, dedicated CLI-first entrypoint for executing a Revyl workflow by
+`workflow-id` with workflow-focused inputs/outputs. For backward compatibility,
+`workflow_id` is accepted as a deprecated alias. Authentication can be passed
+through the `api-key` input or the `REVYL_API_KEY` environment variable.
 
 ```yaml
 # Same-repo usage
 - name: Run Revyl Workflow
   uses: ./run-workflow
   with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
     timeout: '3600'
     backend-url: 'https://backend-staging.revyl.ai'
     cli-version: 'v0.1.5'
-  env:
-    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
 # Cross-repo usage
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@main
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
   with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
     timeout: '3600'
     cli-version: 'v0.1.5'
-  env:
-    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
 ### Upload Build Action (`upload-build`)

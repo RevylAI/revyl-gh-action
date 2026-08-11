@@ -1,5 +1,42 @@
 # Release Notes
 
+## v2.0.5 - Workflow action API-key input (2026-08-10)
+
+### Changes
+
+- Added an optional `api-key` input to `run-workflow`; when omitted, the action
+  continues to read `REVYL_API_KEY` from the environment.
+- Kept input authentication consistent with `run-test` while preserving the
+  existing environment-variable contract.
+- Documented the exact `v2.0.5` release pin for reproducible CI workflows.
+
+### Upgrade note for v2.0.0
+
+Customers pinned to `v2.0.0` should upgrade to `v2.0.5`. The older Node runner
+connected to the legacy `backend.cognisim.io` SSE endpoint; its cross-origin
+redirect to `backend.revyl.ai` could discard the authorization header and fail
+monitoring with `401 Unauthorized` after a workflow had already queued. `v2.0.5`
+ships the CLI-first runner with the canonical backend endpoint.
+
+Both authentication forms are supported:
+
+```yaml
+- uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
+    workflow-id: 'your-workflow-id'
+```
+
+```yaml
+- uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  with:
+    workflow-id: 'your-workflow-id'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
+---
+
 ## v2.0.4 - Canonical Build API for upload-build (2026-07-18)
 
 ### 🔧 Changes

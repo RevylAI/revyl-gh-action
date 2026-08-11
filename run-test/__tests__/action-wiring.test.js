@@ -17,7 +17,9 @@ describe('Action wiring', () => {
     expect(runTestAction).toMatch(/download-cli\.sh/)
     expect(runTestAction).toMatch(/X64\|x64\|AMD64\|amd64/)
     expect(runTestAction).toMatch(/ARM64\|arm64/)
-    expect(runTestAction).toMatch(/bash "\$\{\{ github\.action_path \}\}\/\.\.\/scripts\/download-cli\.sh"/)
+    expect(runTestAction).toMatch(
+      /bash "\$\{\{ github\.action_path \}\}\/\.\.\/scripts\/download-cli\.sh"/
+    )
     expect(runTestAction).toMatch(/- name: Run via CLI/)
     expect(runTestAction).toMatch(
       /workflow_id is deprecated\. Use workflow-id instead\./
@@ -32,7 +34,9 @@ describe('Action wiring', () => {
     expect(runTestAction).not.toMatch(/\n\s*start-timeout:/)
     expect(runTestAction).toMatch(/Unsupported runner\.os/)
     expect(runTestAction).toMatch(/Unsupported runner\.arch/)
-    expect(runTestAction).toMatch(/DEFAULT_BACKEND_URL="https:\/\/backend\.revyl\.ai"/)
+    expect(runTestAction).toMatch(
+      /DEFAULT_BACKEND_URL="https:\/\/backend\.revyl\.ai"/
+    )
     expect(runTestAction).toMatch(
       /\[ "\$\{BACKEND_URL\}" != "\$\{DEFAULT_BACKEND_URL\}" \]/
     )
@@ -41,14 +45,22 @@ describe('Action wiring', () => {
   it('keeps run-workflow CLI-first and free of nested action path dependency', () => {
     const runWorkflowAction = readFile('../../run-workflow/action.yml')
 
+    expect(runWorkflowAction).toMatch(/\n\s*api-key:/)
+    expect(runWorkflowAction).toMatch(
+      /REVYL_API_KEY:\s*\$\{\{ inputs\.api-key \|\| env\.REVYL_API_KEY \}\}/
+    )
     expect(runWorkflowAction).not.toMatch(/\n\s*use-cli:/)
     expect(runWorkflowAction).toMatch(/\n\s*cli-version:/)
-    expect(runWorkflowAction).toMatch(/\n\s*status:\n\s*description:\s*'Final workflow status when available\.'/)
+    expect(runWorkflowAction).toMatch(
+      /\n\s*status:\n\s*description:\s*'Final workflow status when available\.'/
+    )
     expect(runWorkflowAction).toMatch(/id:\s+download-cli/)
     expect(runWorkflowAction).toMatch(/download-cli\.sh/)
     expect(runWorkflowAction).toMatch(/X64\|x64\|AMD64\|amd64/)
     expect(runWorkflowAction).toMatch(/ARM64\|arm64/)
-    expect(runWorkflowAction).toMatch(/bash "\$\{\{ github\.action_path \}\}\/\.\.\/scripts\/download-cli\.sh"/)
+    expect(runWorkflowAction).toMatch(
+      /bash "\$\{\{ github\.action_path \}\}\/\.\.\/scripts\/download-cli\.sh"/
+    )
     expect(runWorkflowAction).toMatch(/- name: Execute workflow via CLI/)
     expect(runWorkflowAction).not.toMatch(/uses:\s+\.\.\/run-test/)
     expect(runWorkflowAction).not.toMatch(
@@ -56,7 +68,9 @@ describe('Action wiring', () => {
     )
     expect(runWorkflowAction).toMatch(/REVYL_CLI_PATH:/)
     expect(runWorkflowAction).toMatch(/\n\s*workflow_id:/)
-    expect(runWorkflowAction).toMatch(/echo "status=\$\{STATUS\}" >> \$GITHUB_OUTPUT/)
+    expect(runWorkflowAction).toMatch(
+      /echo "status=\$\{STATUS\}" >> \$GITHUB_OUTPUT/
+    )
     expect(runWorkflowAction).toMatch(
       /"\$\{REVYL_CLI_PATH\}" workflow run "\$\{WORKFLOW_ID\}"/
     )
@@ -74,7 +88,9 @@ describe('Action wiring', () => {
       /\[ "\$\{BACKEND_URL\}" != "\$\{DEFAULT_BACKEND_URL\}" \]/
     )
     expect(runWorkflowAction).not.toMatch(/execute_workflow_id_async/)
-    expect(runWorkflowAction).not.toMatch(/\/api\/v1\/workflows\/status\/status\//)
+    expect(runWorkflowAction).not.toMatch(
+      /\/api\/v1\/workflows\/status\/status\//
+    )
     expect(runWorkflowAction).not.toMatch(/curl -sS -X POST/)
     expect(runWorkflowAction).not.toMatch(/curl -sS -X GET/)
     expect(runWorkflowAction).not.toMatch(/curl -sL -o revyl/)

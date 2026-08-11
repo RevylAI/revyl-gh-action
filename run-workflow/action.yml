@@ -3,6 +3,10 @@ description: 'Run a Revyl workflow by workflow id with real-time monitoring'
 author: 'Revyl'
 
 inputs:
+  api-key:
+    description:
+      'Revyl API key for authentication (can also use REVYL_API_KEY env var)'
+    required: false
   workflow-id:
     description: 'The workflow id to run.'
     required: false
@@ -122,7 +126,7 @@ runs:
       id: run
       shell: bash
       env:
-        REVYL_API_KEY: ${{ env.REVYL_API_KEY }}
+        REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
         REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
