@@ -75,16 +75,13 @@ fi
 debug_log "Debug mode enabled"
 debug_log "Workflow ID: $WORKFLOW_ID"
 
-# Constants
-# Execution routes are on the backend under /api/v1/execution
 BACKEND_BASE_URL="${BACKEND_BASE_URL:-https://backend.revyl.ai}"
-REVYL_EXECUTE_API_HOST="${BACKEND_BASE_URL}/api/v1/execution"
 
 # Execute the workflow asynchronously
 debug_log "Executing workflow ID: $WORKFLOW_ID"
 
 # Prepare the API request for execution
-EXECUTE_API_URL="${REVYL_EXECUTE_API_HOST}/api/execute_workflow_id_async"
+EXECUTE_API_URL="${BACKEND_BASE_URL}/api/v1/workflow-executions"
 EXECUTE_API_DATA="{\"workflow_id\": \"$WORKFLOW_ID\"}"
 
 debug_log "Making API call to: $EXECUTE_API_URL"

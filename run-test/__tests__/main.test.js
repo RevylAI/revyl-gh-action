@@ -257,7 +257,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
+      'https://backend.revyl.ai/api/v1/workflow-executions',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)
@@ -293,7 +293,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
+      'https://backend.revyl.ai/api/v1/workflow-executions',
       expect.objectContaining({ workflow_id: 'wf_alias_123' })
     )
     expect(core.warning).toHaveBeenCalledWith(
@@ -415,7 +415,7 @@ describe('run function', () => {
     await main.run()
 
     expect(mockHttpClient.postJson).toHaveBeenCalledWith(
-      'https://backend.revyl.ai/api/v1/execution/api/execute_workflow_id_async',
+      'https://backend.revyl.ai/api/v1/workflow-executions',
       expect.any(Object)
     )
     expect(core.setOutput).toHaveBeenCalledWith('task_id', taskId)

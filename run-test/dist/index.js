@@ -7964,24 +7964,18 @@ async function run() {
       }
     })
 
-    // Determine the base URL and endpoints (updated for async execution)
-    // Execution routes are now on the backend under /api/v1/execution
     const backendBaseUrl =
       core.getInput('backend-url', { required: false }) ||
       'https://backend.revyl.ai'
 
-    // Execution base URL: always use backend + /api/v1/execution
-    const executionBaseUrl = `${backendBaseUrl}/api/v1/execution`
     const statusBaseUrl = backendBaseUrl
 
-    const initEndpoint = testId
-      ? '/api/execute_test_id_async'
-      : '/api/execute_workflow_id_async'
+    const initUrl = testId
+      ? `${backendBaseUrl}/api/v1/execution/api/execute_test_id_async`
+      : `${backendBaseUrl}/api/v1/workflow-executions`
     const statusEndpoint = testId
       ? '/api/v1/tests/get_enhanced_test_execution_task'
       : '/api/v1/workflows/tasks/workflow_task'
-
-    const initUrl = `${executionBaseUrl}${initEndpoint}`
 
     core.startGroup(`Starting ${testId ? 'Test' : 'Workflow'} Execution`)
     core.info(`${testId ? 'Test' : 'Workflow'} ID: ${testId || workflowId}`)
