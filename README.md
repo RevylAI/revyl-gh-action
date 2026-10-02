@@ -43,7 +43,7 @@ curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload
 
 **Parameters:**
 
-- `APP_ID` - Your Revyl app ID (from the app's Builds page)
+- `APP_ID` - Your Revyl app ID (from the app's Overview page)
 - `VERSION` - Version string (e.g., `1.0.0`, `build-123`)
 - `REVYL_API_KEY` - Your API key
 

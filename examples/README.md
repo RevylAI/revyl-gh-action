@@ -31,7 +31,7 @@ Add to your repository secrets (`Settings` → `Secrets and variables` →
 In the workflow file, update:
 
 ```yaml
-REVYL_APP_ID: 'your-revyl-app-id-here' # Get from your app's Builds page
+REVYL_APP_ID: 'your-revyl-app-id-here' # Get from your app's Overview page
 ```
 
 **Getting your Build ID** To get your build ID, create a new build, then copy
