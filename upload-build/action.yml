@@ -16,6 +16,11 @@ inputs:
     description:
       'Version/build name for this upload (must be unique within the app).'
     required: true
+  branch:
+    description:
+      'Revyl branch to upload the build to. Created if it does not exist.
+      Defaults to the app default branch.'
+    required: false
   file-path:
     description:
       'Path to the build artifact file (for binary uploads). Mutually exclusive

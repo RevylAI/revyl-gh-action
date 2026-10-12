@@ -92,27 +92,37 @@ retries, and shareable report generation.
 
 **Input Parameters:**
 
-| Parameter          | Required | Description                                  | Default  |
-| ------------------ | -------- | -------------------------------------------- | -------- |
-| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -        |
-| `test-id`          | No\*     | The ID of the test to run                    | -        |
-| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -        |
-| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -        |
-| `build-id`         | No       | ID of a specific build to use                | -        |
-| `build-version-id` | No       | Deprecated alias for `build-id`              | -        |
-| `retries`          | No       | Number of retries if test fails              | -        |
-| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`   |
-| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest` |
+| Parameter          | Required | Description                                  | Default         |
+| ------------------ | -------- | -------------------------------------------- | --------------- |
+| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -               |
+| `test-id`          | No\*     | The ID of the test to run                    | -               |
+| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -               |
+| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -               |
+| `build-id`         | No       | ID of a specific build to use                | -               |
+| `build-version-id` | No       | Deprecated alias for `build-id`              | -               |
+| `branch`           | No       | Revyl branch to run on                       | Saved selection |
+| `retries`          | No       | Number of retries if test fails              | -               |
+| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`          |
+| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest`        |
 
 \* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id`
 is accepted as a deprecated alias.
+
+Without `branch`, a run uses the saved selection of its test or workflow, which
+is the app default branch unless changed. A `build-id` given with `branch` must
+belong to that branch, or the run fails before it starts. Use long-lived
+branches like `main` or `staging`. Don't pass per-PR values like
+`${{ github.head_ref }}`; branches can't be deleted yet.
 
 ### Run Workflow Action (`run-workflow`)
 
 Clean, dedicated CLI-first entrypoint for executing a Revyl workflow by
 `workflow-id` with workflow-focused inputs/outputs. For backward compatibility,
 `workflow_id` is accepted as a deprecated alias. Authentication can be passed
-through the `api-key` input or the `REVYL_API_KEY` environment variable.
+through the `api-key` input or the `REVYL_API_KEY` environment variable. Set
+`branch` to run every app in the workflow on that Revyl branch instead of the
+saved selections. Use long-lived branches like `main` or `staging`. Don't pass
+per-PR values like `${{ github.head_ref }}`; branches can't be deleted yet.
 
 ```yaml
 # Same-repo usage
@@ -127,7 +137,7 @@ through the `api-key` input or the `REVYL_API_KEY` environment variable.
 
 # Cross-repo usage
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -156,6 +166,7 @@ injection and multi-source support.
 | `app-id`       | Yes      | The Revyl app ID to upload to                            | `abc-123-def`                         |
 | `build-var-id` | No       | Deprecated alias for `app-id`                            | `abc-123-def`                         |
 | `version`      | Yes      | Version string for this build (must be unique)           | `1.0.0` or `${{ github.sha }}`        |
+| `branch`       | No       | Revyl branch to upload to (default: app default branch)  | `staging`                             |
 | `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                    | `./dist/app.apk`                      |
 | `expo-url`     | No\*     | Expo build URL to download from                          | `https://expo.dev/artifacts/...`      |
 | `expo-headers` | No       | JSON headers for Expo URL download                       | `'{"Authorization": "Bearer token"}'` |
@@ -163,6 +174,12 @@ injection and multi-source support.
 | `timeout`      | No       | Upload timeout in seconds                                | `1800` (30 min)                       |
 
 \* Either `file-path` or `expo-url` must be provided (but not both)
+
+Uploading to a `branch` that does not exist creates it. The upload never changes
+a branch's default build: a branch set to an exact build keeps it, and a branch
+that follows Latest build uses the new build. Use long-lived branches like
+`main` or `staging`. Don't pass per-PR values like `${{ github.head_ref }}`;
+branches can't be deleted yet.
 
 ### Environment Variables
 
@@ -321,7 +338,8 @@ no configuration required.
 
 - `ci_run_url`: Direct link to the GitHub Actions run
 - `commit_sha`: Git commit SHA that triggered the build
-- `branch`: Branch name where the build was triggered
+- `branch`: The pull request's branch on `pull_request` runs, otherwise the
+  pushed branch or tag (the `branch` input sets the Revyl branch)
 - `pr_number`: Pull request number (for PR builds)
 - `ci_system`: 'github-actions'
 - `ci_build_number`: GitHub run number

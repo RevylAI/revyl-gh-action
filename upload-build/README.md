@@ -42,19 +42,44 @@ supports both direct file uploads and Expo URL ingestion.
     metadata: '{"expo_build_id": "abc123"}'
 ```
 
+### Upload to a Branch
+
+```yaml
+- name: Upload Build to staging
+  uses: ./actions/upload-build
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+  with:
+    app-id: 'your-revyl-app-id'
+    version: '1.0.0'
+    file-path: './dist/app.apk'
+    branch: 'staging'
+```
+
+`branch` sets the Revyl branch the build belongs to and creates it if it does
+not exist. Without it, the build goes to the app default branch. The upload
+never changes a branch's default build: a branch set to an exact build keeps it,
+and a branch that follows Latest build uses the new build, because it is the
+newest. Use long-lived branches like `main` or `staging`. Don't pass per-PR
+values like `${{ github.head_ref }}`; branches can't be deleted yet.
+
+Build metadata still records its Git `branch`: the pull request's branch on
+`pull_request` runs, and the pushed branch or tag otherwise.
+
 ## Inputs
 
-| Input          | Description                                              | Required | Default                    |
-| -------------- | -------------------------------------------------------- | -------- | -------------------------- |
-| `app-id`       | The Revyl app ID to upload the build to                  | ✅       |                            |
-| `build-var-id` | Deprecated alias for `app-id`                            | ❌       |                            |
-| `version`      | Version string for this build (must be unique)           | ✅       |                            |
-| `file-path`    | Path to the build artifact file                          | ❌\*     |                            |
-| `expo-url`     | Expo build URL to download and upload                    | ❌\*     |                            |
-| `expo-headers` | JSON string of headers for Expo URL download             | ❌       |                            |
-| `metadata`     | JSON string of additional metadata                       | ❌       |                            |
-| `package-name` | Package name/identifier (auto-extracted if not provided) | ❌       |                            |
-| `timeout`      | Timeout in seconds for upload operation                  | ❌       | `1800`                     |
+| Input          | Description                                              | Required | Default            |
+| -------------- | -------------------------------------------------------- | -------- | ------------------ |
+| `app-id`       | The Revyl app ID to upload the build to                  | ✅       |                    |
+| `build-var-id` | Deprecated alias for `app-id`                            | ❌       |                    |
+| `version`      | Version string for this build (must be unique)           | ✅       |                    |
+| `branch`       | Revyl branch to upload to; created if it does not exist  | ❌       | App default branch |
+| `file-path`    | Path to the build artifact file                          | ❌\*     |                    |
+| `expo-url`     | Expo build URL to download and upload                    | ❌\*     |                    |
+| `expo-headers` | JSON string of headers for Expo URL download             | ❌       |                    |
+| `metadata`     | JSON string of additional metadata                       | ❌       |                    |
+| `package-name` | Package name/identifier (auto-extracted if not provided) | ❌       |                    |
+| `timeout`      | Timeout in seconds for upload operation                  | ❌       | `1800`             |
 
 \*Either `file-path` or `expo-url` must be provided (mutually exclusive).
 

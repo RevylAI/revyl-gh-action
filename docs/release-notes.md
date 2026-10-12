@@ -1,5 +1,46 @@
 # Release Notes
 
+## v2.1.0 - Branch input (2026-10-11)
+
+### Changes
+
+- Added an optional `branch` input to `upload-build`, `run-test`, and
+  `run-workflow`. `upload-build` uploads to that Revyl branch and creates it if
+  it does not exist. `run-test` and `run-workflow` run on that branch for this
+  run only.
+- Without `branch`, every action behaves as before: uploads go to the app
+  default branch and runs use their saved selections.
+- In `run-test`, a `build-id` given with `branch` must belong to that branch, or
+  the run fails before it starts.
+- `branch` in `run-test` and `run-workflow` needs Revyl CLI 0.1.148 or newer.
+  With an older `cli-version`, the action stops before the run with
+  `The branch input needs Revyl CLI 0.1.148 or newer (found 0.1.147).` in
+  `error_message`.
+- Every action ignores whitespace around `branch`; a blank value means no
+  branch.
+- `run-test` and `run-workflow` say which build ran, as `Build: v1.3 on main` or
+  `Builds: v1.3 on main, v2.0 on staging`, in the log and the job summary. A
+  branch that doesn't exist fails the run before it starts, with the reason in
+  `error_message`.
+- `upload-build` logs which build runs on the branch after the upload, for
+  example
+  `Branch: staging (default build stays v1.2; runs won't use this upload)`.
+- `upload-build` records the pull request's branch as build metadata `branch` on
+  `pull_request` runs, instead of `<pr_number>/merge`.
+
+```yaml
+- uses: RevylAI/revyl-gh-action/upload-build@v2.1.0
+  with:
+    app-id: ${{ vars.REVYL_APP_ID }}
+    version: ${{ github.sha }}
+    file-path: ./app.apk
+    branch: staging
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
+---
+
 ## v2.0.5 - Workflow action API-key input (2026-08-10)
 
 ### Changes

@@ -30,6 +30,12 @@ inputs:
       default)'
     required: false
     deprecationMessage: 'build-version-id is deprecated. Use build-id instead.'
+  branch:
+    description:
+      'Revyl branch to run on. Defaults to the saved selection of the test or
+      workflow, which is the app default branch unless changed. With build-id,
+      that build must belong to this branch or the run fails before it starts.'
+    required: false
   timeout:
     description: 'Timeout in seconds (default: 3600)'
     required: false
@@ -149,10 +155,44 @@ runs:
       env:
         REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
         REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
+        BRANCH_INPUT: ${{ inputs.branch }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
           echo "::error::Missing REVYL_API_KEY"
           exit 1
+        fi
+
+        trim_whitespace() {
+          local value="$1"
+          value="${value#"${value%%[![:space:]]*}"}"
+          value="${value%"${value##*[![:space:]]}"}"
+          printf '%s' "${value}"
+        }
+
+        version_is_below() {
+          local IFS=.
+          local -a found=($1) required=($2)
+          local index
+          for index in 0 1 2; do
+            if (( 10#${found[index]} != 10#${required[index]} )); then
+              (( 10#${found[index]} < 10#${required[index]} ))
+              return
+            fi
+          done
+          return 1
+        }
+
+        BRANCH_INPUT="$(trim_whitespace "${BRANCH_INPUT}")"
+        if [ -n "${BRANCH_INPUT}" ]; then
+          MIN_BRANCH_CLI_VERSION="0.1.148"
+          CLI_VERSION="$("${REVYL_CLI_PATH}" version 2>&1 | grep -oE '(revyl version|Version:)[[:space:]]+v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+          if [ -n "${CLI_VERSION}" ] && version_is_below "${CLI_VERSION}" "${MIN_BRANCH_CLI_VERSION}"; then
+            VERSION_ERROR="The branch input needs Revyl CLI ${MIN_BRANCH_CLI_VERSION} or newer (found ${CLI_VERSION})."
+            echo "::error::${VERSION_ERROR}"
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "error_message=${VERSION_ERROR}" >> $GITHUB_OUTPUT
+            exit 1
+          fi
         fi
 
         WORKFLOW_ID_INPUT="${{ inputs.workflow-id }}"
@@ -196,6 +236,11 @@ runs:
           ARGS="${ARGS} --build-id ${BUILD_ID}"
         fi
 
+        BRANCH_ARGS=()
+        if [ -n "${BRANCH_INPUT}" ]; then
+          BRANCH_ARGS=("--branch=${BRANCH_INPUT}")
+        fi
+
         if [ "${{ inputs.timeout }}" != "3600" ]; then
           ARGS="${ARGS} --timeout ${{ inputs.timeout }}"
         fi
@@ -220,21 +265,46 @@ runs:
         # Add JSON output for parsing
         ARGS="${ARGS} --json --github-actions --open=false"
 
-        echo "Running: ${REVYL_CLI_PATH} ${RESOURCE} run ${TARGET_ID} ${ARGS}"
+        echo "Running: ${REVYL_CLI_PATH} ${RESOURCE} run ${TARGET_ID} ${ARGS} ${BRANCH_ARGS[*]}"
 
         TMP_OUTPUT="$(mktemp)"
         # Run and capture output
         set +e
-        "${REVYL_CLI_PATH}" "${RESOURCE}" run "${TARGET_ID}" ${ARGS} 2>&1 | tee "${TMP_OUTPUT}"
+        "${REVYL_CLI_PATH}" "${RESOURCE}" run "${TARGET_ID}" ${ARGS} "${BRANCH_ARGS[@]}" 2>&1 | tee "${TMP_OUTPUT}"
         EXIT_CODE=${PIPESTATUS[0]}
         set -e
         OUTPUT="$(cat "${TMP_OUTPUT}")"
         rm -f "${TMP_OUTPUT}"
 
+        json_string_values() {
+          sed -E -e 's/^"([^"]*)"[[:space:]]*:[[:space:]]*"/\1=/' -e 's/"$//' -e 's/\\"/"/g' -e 's/\\\\/\\/g'
+        }
+
         extract_string_from() {
           local text="$1"
           local key="$2"
-          echo "${text}" | tr -d '\r' | grep -o "\"${key}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/' || true
+          echo "${text}" | tr -d '\r' | grep -oE "\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" | head -1 | json_string_values | sed -e 's/^[^=]*=//' || true
+        }
+
+        extract_build_pairs_from() {
+          local text="$1"
+          echo "${text}" | tr -d '\r' | grep -oE '"(branch_name|build_version)"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' | json_string_values | awk '
+            {
+              separator = index($0, "=")
+              key = substr($0, 1, separator - 1)
+              value = substr($0, separator + 1)
+              if (key == "branch_name") { branch = value; next }
+              if (value != "" && branch != "") {
+                pair = value " on " branch
+                if (!(pair in seen)) {
+                  seen[pair] = 1
+                  pairs = pairs (pairs == "" ? "" : ", ") pair
+                }
+              }
+              branch = ""
+            }
+            END { print pairs }
+          ' || true
         }
 
         extract_number_from() {
@@ -338,6 +408,22 @@ runs:
           echo "execution_time=${DURATION}" >> $GITHUB_OUTPUT
         fi
 
+        BUILD_LABEL=""
+        BUILD_VALUE=""
+        if [ "$TYPE" = "test" ]; then
+          BUILD_VERSION="$(extract_string build_version)"
+          BUILD_BRANCH="$(extract_string branch_name)"
+          if [ -n "${BUILD_VERSION}" ] && [ -n "${BUILD_BRANCH}" ]; then
+            BUILD_LABEL="Build"
+            BUILD_VALUE="${BUILD_VERSION} on ${BUILD_BRANCH}"
+          fi
+        else
+          BUILD_VALUE="$(extract_build_pairs_from "$(echo "${OUTPUT}" | sed -n '/"tests"/,/^[[:space:]]*\]/p')")"
+          if [ -n "${BUILD_VALUE}" ]; then
+            BUILD_LABEL="Builds"
+          fi
+        fi
+
         REQUESTED_NO_WAIT="${{ inputs.no-wait }}"
         if [ -z "${STATUS}" ]; then
           if [ "${REQUESTED_NO_WAIT}" = "true" ] && [ "${SUCCESS_VALUE}" = "true" ]; then
@@ -362,6 +448,9 @@ runs:
           fi
           echo "Test success: ${SUCCESS_VALUE}"
         fi
+        if [ -n "${BUILD_LABEL}" ]; then
+          echo "${BUILD_LABEL}: ${BUILD_VALUE}"
+        fi
 
         if [ -n "${REPORT_LINK}" ]; then
           echo "Report: ${REPORT_LINK}"
@@ -377,13 +466,21 @@ runs:
             echo ""
             echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
             echo ""
+            if [ -n "${ERROR}" ]; then
+              echo "**Error:** ${ERROR}"
+              echo ""
+            fi
+            if [ -n "${BUILD_LABEL}" ]; then
+              echo "**${BUILD_LABEL}:** ${BUILD_VALUE}"
+              echo ""
+            fi
             if [ -n "${TOTAL}" ]; then
               echo "### Test Results: ${PASSED:-0}/${TOTAL} passed"
               echo ""
             fi
 
             TEST_JSON_BLOCK="$(echo "${OUTPUT}" | sed -n '/"tests"/,/^[[:space:]]*\]/p')"
-            if [ -n "${TEST_JSON_BLOCK}" ]; then
+            if echo "${TEST_JSON_BLOCK}" | grep -q '"test_name"'; then
               echo "| Test | Platform | Result | Duration |"
               echo "|------|----------|--------|----------|"
               echo "${TEST_JSON_BLOCK}" | grep -o '"test_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"/\1/' > /tmp/revyl_names.txt
@@ -409,9 +506,17 @@ runs:
             echo "## Revyl Test${TEST_NAME:+: ${TEST_NAME}}"
             echo ""
             echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+            if [ -n "${ERROR}" ]; then
+              echo ""
+              echo "**Error:** ${ERROR}"
+            fi
             if [ -n "${TOTAL_STEPS}" ]; then
               echo ""
               echo "**Steps:** ${COMPLETED_STEPS:-0}/${TOTAL_STEPS} completed"
+            fi
+            if [ -n "${BUILD_LABEL}" ]; then
+              echo ""
+              echo "**${BUILD_LABEL}:** ${BUILD_VALUE}"
             fi
             echo ""
           fi

@@ -62,7 +62,8 @@ function collectGithubActionsMetadata(filePath) {
     autoMetadata.commit_sha = process.env.GITHUB_SHA
   }
   if (process.env.GITHUB_REF_NAME) {
-    autoMetadata.branch = process.env.GITHUB_REF_NAME
+    autoMetadata.branch =
+      process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME
   }
 
   if (namespace && project && headSha) {
@@ -89,6 +90,75 @@ function collectGithubActionsMetadata(filePath) {
   autoMetadata.ci_build_attempt = process.env.GITHUB_RUN_ATTEMPT
 
   return autoMetadata
+}
+
+function apiErrorMessage(error) {
+  const detail = error.result?.detail
+  return typeof detail === 'string' ? detail : error.message
+}
+
+function describeBranchRunBuild(upload, resolved, hasExactDefaultBuild) {
+  if (hasExactDefaultBuild && resolved.version_id === upload.buildId) {
+    return `default build is now ${upload.version}`
+  }
+  if (hasExactDefaultBuild) {
+    return `default build stays ${resolved.version}; runs won't use this upload`
+  }
+  if (resolved.version_id === upload.buildId) {
+    return 'Latest build: runs use this upload'
+  }
+  return `Latest build: runs use ${resolved.version}`
+}
+
+/**
+ * Logs which build a run that picks no build now uses on the upload's branch,
+ * through the resolver `revyl build which` uses. Uploads from this action never
+ * change a branch's default build. A failed check only warns: the upload
+ * already succeeded.
+ * @param {object} client Authenticated HTTP client.
+ * @param {string} backendUrl Revyl backend base URL.
+ * @param {string} appId App the build was uploaded to.
+ * @param {{buildId: string, version: string, branchId: string | null, branchName: string | null}} upload The finished upload.
+ * @returns {Promise<void>} Resolves once the line or the warning is logged.
+ */
+async function logUploadedBuildBranch(client, backendUrl, appId, upload) {
+  try {
+    let selector = {}
+    if (upload.branchId) {
+      selector = { branch_id: upload.branchId }
+    } else if (upload.branchName) {
+      selector = { branch_name: upload.branchName }
+    }
+    const resolveRes = await client.postJson(
+      `${backendUrl}/api/v1/apps/resolve`,
+      { build_var_id: appId, ...selector }
+    )
+    const resolved = resolveRes.result
+    if (!resolved?.version_id || !resolved.branch_id) {
+      throw Error(
+        `no runnable build (${resolved?.resolution_status || `status ${resolveRes.statusCode}`})`
+      )
+    }
+    const branchRes = await client.getJson(
+      `${backendUrl}/api/v1/apps/${appId}/branches/${resolved.branch_id}`
+    )
+    if (!branchRes.result) {
+      throw Error(`branch ${resolved.branch_id} was not found`)
+    }
+    const runBuild = describeBranchRunBuild(
+      upload,
+      resolved,
+      Boolean(branchRes.result.pinned_build_id)
+    )
+    core.info(`   Branch: ${resolved.branch_name} (${runBuild})`)
+  } catch (error) {
+    if (upload.branchName) {
+      core.info(`   Branch: ${upload.branchName}`)
+    }
+    core.warning(
+      `Couldn't check which build runs on ${upload.branchName || 'the app default branch'}: ${apiErrorMessage(error)}`
+    )
+  }
 }
 
 /**
@@ -120,6 +190,7 @@ async function run() {
     }
 
     const version = core.getInput('version', { required: true })
+    const branch = core.getInput('branch', { required: false })
     const filePath = core.getInput('file-path', { required: false })
     const expoUrl = core.getInput('expo-url', { required: false })
     const expoHeaders = core.getInput('expo-headers', { required: false })
@@ -180,6 +251,10 @@ async function run() {
       }
     }
 
+    if (branch) {
+      core.info(`Uploading to Revyl branch: ${branch}`)
+    }
+
     const client = new httm.HttpClient('revyl-upload-build-action', [], {
       headers: {
         Authorization: `Bearer ${process.env['REVYL_API_KEY']}`,
@@ -191,6 +266,8 @@ async function run() {
     let versionId = null
     let packageId = null
     let artifactUrl = null
+    let uploadBranchId = null
+    let uploadBranchName = branch || null
 
     if (expoUrl) {
       // Handle Expo URL upload using the from-url endpoint
@@ -202,6 +279,9 @@ async function run() {
         from_url: expoUrl,
         headers: parsedExpoHeaders,
         metadata: finalMetadata
+      }
+      if (branch) {
+        fromUrlBody.branch_name = branch
       }
 
       core.info(`Making request to: ${backendUrl}${fromUrlEndpoint}`)
@@ -227,6 +307,8 @@ async function run() {
       versionId = fromUrlRes.result.id
       artifactUrl = fromUrlRes.result.artifact_url
       packageId = fromUrlRes.result.metadata?.package_id || null
+      uploadBranchId = fromUrlRes.result.branch_id || null
+      uploadBranchName = fromUrlRes.result.branch_name || uploadBranchName
 
       core.info(
         `Successfully uploaded build from Expo URL. Version ID: ${versionId}`
@@ -269,6 +351,9 @@ async function run() {
         version: version,
         file_name: fileName
       })
+      if (branch) {
+        uploadUrlParams.set('branch_name', branch)
+      }
 
       core.info(
         `Getting upload URL from: ${backendUrl}${uploadUrlEndpoint}?${uploadUrlParams}`
@@ -298,6 +383,7 @@ async function run() {
       }
 
       versionId = uploadUrlRes.result.version_id
+      uploadBranchId = uploadUrlRes.result.branch_id || null
       const uploadUrl = uploadUrlRes.result.upload_url
       const contentType = uploadUrlRes.result.content_type
 
@@ -397,6 +483,12 @@ async function run() {
     if (packageId) {
       core.info(`   Package ID: ${packageId}`)
     }
+    await logUploadedBuildBranch(client, backendUrl, resolvedAppId, {
+      buildId: versionId,
+      version,
+      branchId: uploadBranchId,
+      branchName: uploadBranchName
+    })
 
     return true
   } catch (error) {

@@ -61,6 +61,26 @@ generation.
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
+### Run on a Branch
+
+```yaml
+- name: Run Revyl Test on staging
+  uses: ./actions/run-test
+  with:
+    test-id: 'your-test-id'
+    branch: 'staging'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
+`branch` picks the Revyl branch for this run only. Without it, the run uses the
+saved selection of the test or workflow, which is the app default branch unless
+changed. A `build-id` given with `branch` must belong to that branch, or the run
+fails before it starts. `branch` needs Revyl CLI 0.1.148 or later; the default
+`cli-version: latest` has it. Use long-lived branches like `main` or `staging`.
+Don't pass per-PR values like `${{ github.head_ref }}`; branches can't be
+deleted yet.
+
 ### No-Wait Mode
 
 Launch tests without waiting for completion. The action succeeds immediately
@@ -94,19 +114,21 @@ execution.
 
 ## Inputs
 
-| Input              | Description                                                              | Required | Default                 |
-| ------------------ | ------------------------------------------------------------------------ | -------- | ----------------------- |
-| `test-id`          | ID of the test to run                                                    | No\*     |                         |
-| `workflow-id`      | ID of the workflow to run (preferred)                                    | No\*     |                         |
-| `workflow_id`      | Deprecated alias for `workflow-id`                                       | No       |                         |
-| `retries`          | Number of retries for failed tests                                       | No       | `1`                     |
-| `build-id`         | Build ID to use (preferred over deprecated `build-version-id`)           | No       |                         |
-| `build-version-id` | Deprecated alias for `build-id`                                          | No       |                         |
-| `timeout`          | Maximum time to wait (seconds)                                           | No       | `3600`                  |
-| `no-wait`          | Launch and exit immediately without waiting for completion                | No       | `false`                 |
-| `cli-version`      | Revyl CLI version used by action runtime                                 | No       | `latest`                |
+| Input              | Description                                                    | Required | Default         |
+| ------------------ | -------------------------------------------------------------- | -------- | --------------- |
+| `test-id`          | ID of the test to run                                          | No\*     |                 |
+| `workflow-id`      | ID of the workflow to run (preferred)                          | No\*     |                 |
+| `workflow_id`      | Deprecated alias for `workflow-id`                             | No       |                 |
+| `retries`          | Number of retries for failed tests                             | No       | `1`             |
+| `build-id`         | Build ID to use (preferred over deprecated `build-version-id`) | No       |                 |
+| `build-version-id` | Deprecated alias for `build-id`                                | No       |                 |
+| `branch`           | Revyl branch to run on; a `build-id` must belong to it         | No       | Saved selection |
+| `timeout`          | Maximum time to wait (seconds)                                 | No       | `3600`          |
+| `no-wait`          | Launch and exit immediately without waiting for completion     | No       | `false`         |
+| `cli-version`      | Revyl CLI version used by action runtime                       | No       | `latest`        |
 
-\*Either `test-id`, `workflow-id` (preferred), or `workflow_id` (deprecated alias) must be provided, but not both test and workflow IDs.
+\*Either `test-id`, `workflow-id` (preferred), or `workflow_id` (deprecated
+alias) must be provided, but not both test and workflow IDs.
 
 ## Outputs
 
@@ -216,7 +238,11 @@ jobs:
 
 ## Changelog
 
-### v2.0.0 (Current)
+### v2.1.0 (Current)
+
+- **NEW**: Optional `branch` input to run on a Revyl branch
+
+### v2.0.0
 
 - **NEW**: Real-time monitoring via Server-Sent Events
 - **NEW**: Automatic report link extraction and output

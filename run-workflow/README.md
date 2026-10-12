@@ -7,7 +7,7 @@ A dedicated CLI-first entrypoint for executing a Revyl workflow by
 
 ```yaml
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -18,13 +18,31 @@ Alternatively, you can set the API key as an environment variable:
 
 ```yaml
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
+
+### Run on a Branch
+
+```yaml
+- name: Run Revyl Workflow on staging
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
+    workflow-id: 'your-workflow-id'
+    branch: 'staging'
+```
+
+`branch` runs every app in the workflow on that Revyl branch for this run only.
+Without it, the workflow uses its saved selections, which use the app default
+branch unless changed. `branch` needs Revyl CLI 0.1.148 or later; the default
+`cli-version: latest` has it. Use long-lived branches like `main` or `staging`.
+Don't pass per-PR values like `${{ github.head_ref }}`; branches can't be
+deleted yet.
 
 ### No-Wait Mode
 
@@ -34,7 +52,7 @@ execution.
 
 ```yaml
 - name: Launch Revyl Workflow (No-Wait)
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -48,7 +66,7 @@ reproducibility.
 
 ```yaml
 - name: Run Revyl Workflow via CLI
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -72,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Execute workflow
-        uses: RevylAI/revyl-gh-action/run-workflow@v2.0.5
+        uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
         with:
           api-key: ${{ secrets.REVYL_MONITORING_API_KEY }}
           workflow-id: 'your-workflow-id'
@@ -81,16 +99,17 @@ jobs:
 
 ## Inputs
 
-| Input         | Required | Description                                                             | Default  |
-| ------------- | -------- | ----------------------------------------------------------------------- | -------- |
-| `api-key`     | No       | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) |          |
-| `workflow-id` | Yes\*    | The workflow id to run (preferred)                                      |          |
-| `workflow_id` | No       | Deprecated alias for `workflow-id`                                      |          |
-| `retries`     | No       | Number of retries for failed tests in the workflow                      | `1`      |
-| `timeout`     | No       | Timeout in seconds for workflow execution                               | `3600`   |
-| `backend-url` | No       | Override backend base URL                                               | -        |
-| `no-wait`     | No       | Launch and exit immediately without waiting for completion              | `false`  |
-| `cli-version` | No       | CLI version used by the action runtime                                  | `latest` |
+| Input         | Required | Description                                                             | Default          |
+| ------------- | -------- | ----------------------------------------------------------------------- | ---------------- |
+| `api-key`     | No       | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) |                  |
+| `workflow-id` | Yes\*    | The workflow id to run (preferred)                                      |                  |
+| `workflow_id` | No       | Deprecated alias for `workflow-id`                                      |                  |
+| `branch`      | No       | Revyl branch to run every app in the workflow on                        | Saved selections |
+| `retries`     | No       | Number of retries for failed tests in the workflow                      | `1`              |
+| `timeout`     | No       | Timeout in seconds for workflow execution                               | `3600`           |
+| `backend-url` | No       | Override backend base URL                                               | -                |
+| `no-wait`     | No       | Launch and exit immediately without waiting for completion              | `false`          |
+| `cli-version` | No       | CLI version used by the action runtime                                  | `latest`         |
 
 \* Provide either `workflow-id` (preferred) or the deprecated `workflow_id`
 alias.
@@ -113,4 +132,4 @@ alias.
 ## Notes
 
 - This action is CLI-first and always executes through `revyl-cli`.
-- Pin to a release (e.g., `@v2.0.5`) or a commit SHA for stability.
+- Pin to a release (e.g., `@v2.1.0`) or a commit SHA for stability.
