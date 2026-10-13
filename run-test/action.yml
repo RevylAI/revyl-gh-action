@@ -22,20 +22,30 @@ inputs:
     required: false
     default: '1'
   build-id:
-    description: 'Build ID to use (overrides test default)'
+    description: 'Exact build ID to run (overrides the saved selection)'
     required: false
   build-version-id:
     description:
-      'DEPRECATED: Use build-id instead. Build ID to use (overrides test
-      default)'
+      'DEPRECATED: Use build-id instead. Exact build ID to run (overrides the
+      saved selection)'
     required: false
     deprecationMessage: 'build-version-id is deprecated. Use build-id instead.'
   branch:
     description:
-      'Revyl branch to run on. Defaults to the saved selection of the test or
-      workflow, which is the app default branch unless changed. With build-id,
-      that build must belong to this branch or the run fails before it starts.'
+      "Revyl branch to run on. Defaults to the saved selection of the test or
+      workflow, which is the app default branch unless changed. Without
+      build-id, the run uses the branch's default build: its pinned build, or
+      its newest build when it isn't pinned. With build-id, that build must
+      belong to this branch or the run fails before it starts."
     required: false
+  all-branches:
+    description:
+      'Run on the newest build across all branches of the app (All branches ·
+      Latest build). With workflow-id, each app in the workflow uses its own
+      newest build. Cannot be combined with branch or build-id. Requires Revyl
+      CLI 0.1.149 or newer.'
+    required: false
+    default: 'false'
   timeout:
     description: 'Timeout in seconds (default: 3600)'
     required: false
@@ -156,6 +166,7 @@ runs:
         REVYL_API_KEY: ${{ inputs.api-key || env.REVYL_API_KEY }}
         REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
         BRANCH_INPUT: ${{ inputs.branch }}
+        ALL_BRANCHES_INPUT: ${{ inputs.all-branches }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
           echo "::error::Missing REVYL_API_KEY"
@@ -182,17 +193,52 @@ runs:
           return 1
         }
 
-        BRANCH_INPUT="$(trim_whitespace "${BRANCH_INPUT}")"
-        if [ -n "${BRANCH_INPUT}" ]; then
-          MIN_BRANCH_CLI_VERSION="0.1.148"
-          CLI_VERSION="$("${REVYL_CLI_PATH}" version 2>&1 | grep -oE '(revyl version|Version:)[[:space:]]+v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
-          if [ -n "${CLI_VERSION}" ] && version_is_below "${CLI_VERSION}" "${MIN_BRANCH_CLI_VERSION}"; then
-            VERSION_ERROR="The branch input needs Revyl CLI ${MIN_BRANCH_CLI_VERSION} or newer (found ${CLI_VERSION})."
-            echo "::error::${VERSION_ERROR}"
-            echo "success=false" >> $GITHUB_OUTPUT
-            echo "error_message=${VERSION_ERROR}" >> $GITHUB_OUTPUT
-            exit 1
+        fail_before_run() {
+          echo "::error::$1"
+          echo "success=false" >> $GITHUB_OUTPUT
+          echo "error_message=$1" >> $GITHUB_OUTPUT
+          exit 1
+        }
+
+        require_cli_version() {
+          local input_name="$1"
+          local min_version="$2"
+          local cli_version
+          cli_version="$("${REVYL_CLI_PATH}" version 2>&1 | grep -oE '(revyl version|Version:)[[:space:]]+v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+          if [ -n "${cli_version}" ] && version_is_below "${cli_version}" "${min_version}"; then
+            fail_before_run "The ${input_name} input needs Revyl CLI ${min_version} or newer (found ${cli_version})."
           fi
+        }
+
+        MIN_BRANCH_CLI_VERSION="0.1.148"
+        MIN_ALL_BRANCHES_CLI_VERSION="0.1.149"
+
+        BRANCH_INPUT="$(trim_whitespace "${BRANCH_INPUT}")"
+        ALL_BRANCHES_INPUT="$(trim_whitespace "${ALL_BRANCHES_INPUT}")"
+        case "${ALL_BRANCHES_INPUT}" in
+          true | false | '') ;;
+          *) fail_before_run "The all-branches input must be true or false." ;;
+        esac
+
+        # Support both new (build-id) and deprecated (build-version-id)
+        BUILD_ID="${{ inputs.build-id }}"
+        BUILD_ID_INPUT_NAME="build-id"
+        if [ -z "${BUILD_ID}" ]; then
+          BUILD_ID="${{ inputs.build-version-id }}"
+          BUILD_ID_INPUT_NAME="build-version-id"
+        fi
+
+        if [ "${ALL_BRANCHES_INPUT}" = "true" ]; then
+          if [ -n "${BRANCH_INPUT}" ]; then
+            fail_before_run "The all-branches input can't be combined with branch. Remove one of them."
+          fi
+          if [ -n "${BUILD_ID}" ]; then
+            fail_before_run "The all-branches input can't be combined with ${BUILD_ID_INPUT_NAME}. Remove one of them."
+          fi
+          require_cli_version all-branches "${MIN_ALL_BRANCHES_CLI_VERSION}"
+        fi
+        if [ -n "${BRANCH_INPUT}" ]; then
+          require_cli_version branch "${MIN_BRANCH_CLI_VERSION}"
         fi
 
         WORKFLOW_ID_INPUT="${{ inputs.workflow-id }}"
@@ -227,11 +273,6 @@ runs:
           ARGS="${ARGS} --retries ${{ inputs.retries }}"
         fi
 
-        # Support both new (build-id) and deprecated (build-version-id)
-        BUILD_ID="${{ inputs.build-id }}"
-        if [ -z "${BUILD_ID}" ]; then
-          BUILD_ID="${{ inputs.build-version-id }}"
-        fi
         if [ "$TYPE" = "test" ] && [ -n "${BUILD_ID}" ]; then
           ARGS="${ARGS} --build-id ${BUILD_ID}"
         fi
@@ -239,6 +280,9 @@ runs:
         BRANCH_ARGS=()
         if [ -n "${BRANCH_INPUT}" ]; then
           BRANCH_ARGS=("--branch=${BRANCH_INPUT}")
+        fi
+        if [ "${ALL_BRANCHES_INPUT}" = "true" ]; then
+          BRANCH_ARGS+=("--all-branches")
         fi
 
         if [ "${{ inputs.timeout }}" != "3600" ]; then
@@ -295,7 +339,7 @@ runs:
               value = substr($0, separator + 1)
               if (key == "branch_name") { branch = value; next }
               if (value != "" && branch != "") {
-                pair = value " on " branch
+                pair = value " from branch " branch
                 if (!(pair in seen)) {
                   seen[pair] = 1
                   pairs = pairs (pairs == "" ? "" : ", ") pair
@@ -415,7 +459,7 @@ runs:
           BUILD_BRANCH="$(extract_string branch_name)"
           if [ -n "${BUILD_VERSION}" ] && [ -n "${BUILD_BRANCH}" ]; then
             BUILD_LABEL="Build"
-            BUILD_VALUE="${BUILD_VERSION} on ${BUILD_BRANCH}"
+            BUILD_VALUE="${BUILD_VERSION} from branch ${BUILD_BRANCH}"
           fi
         else
           BUILD_VALUE="$(extract_build_pairs_from "$(echo "${OUTPUT}" | sed -n '/"tests"/,/^[[:space:]]*\]/p')")"
@@ -460,18 +504,28 @@ runs:
         TEST_NAME="$(extract_string test_name)"
         WORKFLOW_NAME="$(extract_string workflow_name)"
 
+        escape_summary_text() {
+          printf '%s' "$1" | sed \
+            -e 's/&/\&amp;/g' -e 's/#/\&#35;/g' \
+            -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+            -e 's/|/\&#124;/g' -e 's/\\/\&#92;/g' -e 's/`/\&#96;/g' \
+            -e 's/\*/\&#42;/g' -e 's/_/\&#95;/g' \
+            -e 's/\[/\&#91;/g' -e 's/\]/\&#93;/g' \
+            -e 's/~/\&#126;/g'
+        }
+
         {
           if [ "$TYPE" = "workflow" ]; then
-            echo "## Revyl Workflow${WORKFLOW_NAME:+: ${WORKFLOW_NAME}}"
+            echo "## Revyl Workflow$(escape_summary_text "${WORKFLOW_NAME:+: ${WORKFLOW_NAME}}")"
             echo ""
-            echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+            echo "**Status:** <code>$(escape_summary_text "${STATUS}")</code>${DURATION:+ | **Duration:** $(escape_summary_text "${DURATION}")}"
             echo ""
             if [ -n "${ERROR}" ]; then
-              echo "**Error:** ${ERROR}"
+              echo "**Error:** $(escape_summary_text "${ERROR}")"
               echo ""
             fi
             if [ -n "${BUILD_LABEL}" ]; then
-              echo "**${BUILD_LABEL}:** ${BUILD_VALUE}"
+              echo "**${BUILD_LABEL}:** $(escape_summary_text "${BUILD_VALUE}")"
               echo ""
             fi
             if [ -n "${TOTAL}" ]; then
@@ -496,19 +550,19 @@ runs:
                   else
                     result_cell="Failed"
                   fi
-                  echo "| ${t_name} | ${t_plat} | ${result_cell} | ${t_dur:-—} |"
+                  echo "| $(escape_summary_text "${t_name}") | $(escape_summary_text "${t_plat}") | ${result_cell} | $(escape_summary_text "${t_dur:-—}") |"
                 done
               fi
               rm -f /tmp/revyl_names.txt /tmp/revyl_platforms.txt /tmp/revyl_success.txt /tmp/revyl_durations.txt
               echo ""
             fi
           else
-            echo "## Revyl Test${TEST_NAME:+: ${TEST_NAME}}"
+            echo "## Revyl Test$(escape_summary_text "${TEST_NAME:+: ${TEST_NAME}}")"
             echo ""
-            echo "**Status:** \`${STATUS}\`${DURATION:+ | **Duration:** ${DURATION}}"
+            echo "**Status:** <code>$(escape_summary_text "${STATUS}")</code>${DURATION:+ | **Duration:** $(escape_summary_text "${DURATION}")}"
             if [ -n "${ERROR}" ]; then
               echo ""
-              echo "**Error:** ${ERROR}"
+              echo "**Error:** $(escape_summary_text "${ERROR}")"
             fi
             if [ -n "${TOTAL_STEPS}" ]; then
               echo ""
@@ -516,7 +570,7 @@ runs:
             fi
             if [ -n "${BUILD_LABEL}" ]; then
               echo ""
-              echo "**${BUILD_LABEL}:** ${BUILD_VALUE}"
+              echo "**${BUILD_LABEL}:** $(escape_summary_text "${BUILD_VALUE}")"
             fi
             echo ""
           fi

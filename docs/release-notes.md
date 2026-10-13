@@ -1,5 +1,54 @@
 # Release Notes
 
+## v2.2.1 - Literal summary text (2026-10-13)
+
+### Changes
+
+- `run-test` and `run-workflow` preserve literal HTML and Markdown characters in
+  job-summary names, errors, build details, and result tables. CLI JSON, console
+  logs, and Action outputs keep their original values.
+
+---
+
+## v2.2.0 - All-branches input (2026-10-12)
+
+### Changes
+
+- Added an optional `all-branches` input to `run-test` and `run-workflow`. Set
+  to `true`, a run uses the newest build across all of the app's branches (All
+  branches · Latest build) for this run only; in a workflow, each app uses its
+  own newest build.
+- `all-branches` defaults to `false`, so existing workflows run as before. It
+  accepts only `true` or `false`; a blank value means `false`.
+- `all-branches` can't be combined with `branch`, or with `build-id` in
+  `run-test`. The action stops before the run and says so in `error_message`,
+  for example
+  `The all-branches input can't be combined with branch. Remove one of them.`
+- `all-branches` needs Revyl CLI 0.1.149 or newer. With an older `cli-version`,
+  the action stops before the run with
+  `The all-branches input needs Revyl CLI 0.1.149 or newer (found 0.1.148).` in
+  `error_message`. `branch` still needs Revyl CLI 0.1.148 or newer.
+- `upload-build` never pins a branch. When the branch is already pinned to the
+  uploaded build, its summary now says `Branch: staging (pinned to this build)`
+  instead of `default build is now <version>`. When it is pinned to another
+  build, the summary says
+  `Branch: staging (pinned to v1.2; runs that don't choose a build keep using v1.2)`
+  instead of `default build stays v1.2; runs won't use this upload`.
+- `run-test` and `run-workflow` name the branch each build came from, as
+  `Build: v1.3 from branch main` or
+  `Builds: v1.3 from branch main, v2.0 from branch staging`, instead of
+  `v1.3 on main`.
+
+```yaml
+- uses: RevylAI/revyl-gh-action/run-workflow@v2.2.0
+  with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
+    workflow-id: 'your-workflow-id'
+    all-branches: 'true'
+```
+
+---
+
 ## v2.1.0 - Branch input (2026-10-11)
 
 ### Changes

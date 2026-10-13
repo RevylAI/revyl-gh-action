@@ -7,7 +7,7 @@ A dedicated CLI-first entrypoint for executing a Revyl workflow by
 
 ```yaml
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -18,7 +18,7 @@ Alternatively, you can set the API key as an environment variable:
 
 ```yaml
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600'
@@ -30,7 +30,7 @@ Alternatively, you can set the API key as an environment variable:
 
 ```yaml
 - name: Run Revyl Workflow on staging
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -38,11 +38,28 @@ Alternatively, you can set the API key as an environment variable:
 ```
 
 `branch` runs every app in the workflow on that Revyl branch for this run only.
-Without it, the workflow uses its saved selections, which use the app default
-branch unless changed. `branch` needs Revyl CLI 0.1.148 or later; the default
-`cli-version: latest` has it. Use long-lived branches like `main` or `staging`.
-Don't pass per-PR values like `${{ github.head_ref }}`; branches can't be
-deleted yet.
+Each app runs the branch's default build: its pinned build, or its newest build
+when it isn't pinned. Without `branch`, the workflow uses its saved selections,
+which use the app default branch unless changed. `branch` needs Revyl CLI
+0.1.148 or later; the default `cli-version: latest` has it. Use long-lived
+branches like `main` or `staging`. Don't pass per-PR values like
+`${{ github.head_ref }}`; branches can't be deleted.
+
+### Run on the Newest Build Across All Branches
+
+```yaml
+- name: Run Revyl Workflow on the newest builds
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
+  with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
+    workflow-id: 'your-workflow-id'
+    all-branches: 'true'
+```
+
+`all-branches: 'true'` runs every app in the workflow on its newest build across
+all of its branches (All branches · Latest build) for this run only. It can't be
+combined with `branch`; the run fails before it starts. `all-branches` needs
+Revyl CLI 0.1.149 or later; the default `cli-version: latest` has it.
 
 ### No-Wait Mode
 
@@ -52,7 +69,7 @@ execution.
 
 ```yaml
 - name: Launch Revyl Workflow (No-Wait)
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -66,7 +83,7 @@ reproducibility.
 
 ```yaml
 - name: Run Revyl Workflow via CLI
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -90,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Execute workflow
-        uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+        uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
         with:
           api-key: ${{ secrets.REVYL_MONITORING_API_KEY }}
           workflow-id: 'your-workflow-id'
@@ -99,17 +116,18 @@ jobs:
 
 ## Inputs
 
-| Input         | Required | Description                                                             | Default          |
-| ------------- | -------- | ----------------------------------------------------------------------- | ---------------- |
-| `api-key`     | No       | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) |                  |
-| `workflow-id` | Yes\*    | The workflow id to run (preferred)                                      |                  |
-| `workflow_id` | No       | Deprecated alias for `workflow-id`                                      |                  |
-| `branch`      | No       | Revyl branch to run every app in the workflow on                        | Saved selections |
-| `retries`     | No       | Number of retries for failed tests in the workflow                      | `1`              |
-| `timeout`     | No       | Timeout in seconds for workflow execution                               | `3600`           |
-| `backend-url` | No       | Override backend base URL                                               | -                |
-| `no-wait`     | No       | Launch and exit immediately without waiting for completion              | `false`          |
-| `cli-version` | No       | CLI version used by the action runtime                                  | `latest`         |
+| Input          | Required | Description                                                             | Default          |
+| -------------- | -------- | ----------------------------------------------------------------------- | ---------------- |
+| `api-key`      | No       | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) |                  |
+| `workflow-id`  | Yes\*    | The workflow id to run (preferred)                                      |                  |
+| `workflow_id`  | No       | Deprecated alias for `workflow-id`                                      |                  |
+| `branch`       | No       | Revyl branch to run every app in the workflow on                        | Saved selections |
+| `all-branches` | No       | Run every app on its newest build across all branches                   | `false`          |
+| `retries`      | No       | Number of retries for failed tests in the workflow                      | `1`              |
+| `timeout`      | No       | Timeout in seconds for workflow execution                               | `3600`           |
+| `backend-url`  | No       | Override backend base URL                                               | -                |
+| `no-wait`      | No       | Launch and exit immediately without waiting for completion              | `false`          |
+| `cli-version`  | No       | CLI version used by the action runtime                                  | `latest`         |
 
 \* Provide either `workflow-id` (preferred) or the deprecated `workflow_id`
 alias.
@@ -132,4 +150,4 @@ alias.
 ## Notes
 
 - This action is CLI-first and always executes through `revyl-cli`.
-- Pin to a release (e.g., `@v2.1.0`) or a commit SHA for stability.
+- Pin to a release (e.g., `@v2.2.1`) or a commit SHA for stability.

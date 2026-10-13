@@ -73,13 +73,32 @@ generation.
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```
 
-`branch` picks the Revyl branch for this run only. Without it, the run uses the
-saved selection of the test or workflow, which is the app default branch unless
-changed. A `build-id` given with `branch` must belong to that branch, or the run
-fails before it starts. `branch` needs Revyl CLI 0.1.148 or later; the default
-`cli-version: latest` has it. Use long-lived branches like `main` or `staging`.
-Don't pass per-PR values like `${{ github.head_ref }}`; branches can't be
-deleted yet.
+`branch` picks the Revyl branch for this run only. The run uses the branch's
+default build: its pinned build, or its newest build when it isn't pinned.
+Without `branch`, the run uses the saved selection of the test or workflow,
+which is the app default branch unless changed. A `build-id` given with `branch`
+must belong to that branch, or the run fails before it starts. `branch` needs
+Revyl CLI 0.1.148 or later; the default `cli-version: latest` has it. Use
+long-lived branches like `main` or `staging`. Don't pass per-PR values like
+`${{ github.head_ref }}`; branches can't be deleted.
+
+### Run on the Newest Build Across All Branches
+
+```yaml
+- name: Run Revyl Test on the newest build
+  uses: ./actions/run-test
+  with:
+    test-id: 'your-test-id'
+    all-branches: 'true'
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+```
+
+`all-branches: 'true'` runs on the newest build across all of the app's branches
+(All branches · Latest build) for this run only. With `workflow-id`, each app in
+the workflow uses its own newest build. It can't be combined with `branch` or
+`build-id`; the run fails before it starts. `all-branches` needs Revyl CLI
+0.1.149 or later; the default `cli-version: latest` has it.
 
 ### No-Wait Mode
 
@@ -123,6 +142,7 @@ execution.
 | `build-id`         | Build ID to use (preferred over deprecated `build-version-id`) | No       |                 |
 | `build-version-id` | Deprecated alias for `build-id`                                | No       |                 |
 | `branch`           | Revyl branch to run on; a `build-id` must belong to it         | No       | Saved selection |
+| `all-branches`     | Run on the newest build across all branches                    | No       | `false`         |
 | `timeout`          | Maximum time to wait (seconds)                                 | No       | `3600`          |
 | `no-wait`          | Launch and exit immediately without waiting for completion     | No       | `false`         |
 | `cli-version`      | Revyl CLI version used by action runtime                       | No       | `latest`        |
@@ -238,7 +258,12 @@ jobs:
 
 ## Changelog
 
-### v2.1.0 (Current)
+### v2.2.0 (Current)
+
+- **NEW**: Optional `all-branches` input to run on the newest build across all
+  branches
+
+### v2.1.0
 
 - **NEW**: Optional `branch` input to run on a Revyl branch
 

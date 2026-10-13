@@ -101,6 +101,7 @@ retries, and shareable report generation.
 | `build-id`         | No       | ID of a specific build to use                | -               |
 | `build-version-id` | No       | Deprecated alias for `build-id`              | -               |
 | `branch`           | No       | Revyl branch to run on                       | Saved selection |
+| `all-branches`     | No       | Run on the newest build across all branches  | `false`         |
 | `retries`          | No       | Number of retries if test fails              | -               |
 | `timeout`          | No       | Timeout in seconds for the test execution    | `3600`          |
 | `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest`        |
@@ -109,10 +110,15 @@ retries, and shareable report generation.
 is accepted as a deprecated alias.
 
 Without `branch`, a run uses the saved selection of its test or workflow, which
-is the app default branch unless changed. A `build-id` given with `branch` must
-belong to that branch, or the run fails before it starts. Use long-lived
-branches like `main` or `staging`. Don't pass per-PR values like
-`${{ github.head_ref }}`; branches can't be deleted yet.
+is the app default branch unless changed. With `branch`, it uses that branch's
+default build: its pinned build, or its newest build when it isn't pinned. A
+`build-id` given with `branch` must belong to that branch, or the run fails
+before it starts. Use long-lived branches like `main` or `staging`. Don't pass
+per-PR values like `${{ github.head_ref }}`; branches can't be deleted.
+
+Set `all-branches: 'true'` to run on the newest build across all of the app's
+branches (All branches · Latest build) instead. It can't be combined with
+`branch` or `build-id` and needs Revyl CLI 0.1.149 or newer.
 
 ### Run Workflow Action (`run-workflow`)
 
@@ -121,8 +127,12 @@ Clean, dedicated CLI-first entrypoint for executing a Revyl workflow by
 `workflow_id` is accepted as a deprecated alias. Authentication can be passed
 through the `api-key` input or the `REVYL_API_KEY` environment variable. Set
 `branch` to run every app in the workflow on that Revyl branch instead of the
-saved selections. Use long-lived branches like `main` or `staging`. Don't pass
-per-PR values like `${{ github.head_ref }}`; branches can't be deleted yet.
+saved selections. Each app runs the branch's default build: its pinned build, or
+its newest build when it isn't pinned. Use long-lived branches like `main` or
+`staging`. Don't pass per-PR values like `${{ github.head_ref }}`; branches
+can't be deleted. Set `all-branches: 'true'` instead of `branch` to run every
+app on its newest build across all of its branches; it needs Revyl CLI 0.1.149
+or newer.
 
 ```yaml
 # Same-repo usage
@@ -137,7 +147,7 @@ per-PR values like `${{ github.head_ref }}`; branches can't be deleted yet.
 
 # Cross-repo usage
 - name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.1.0
+  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
@@ -175,11 +185,11 @@ injection and multi-source support.
 
 \* Either `file-path` or `expo-url` must be provided (but not both)
 
-Uploading to a `branch` that does not exist creates it. The upload never changes
-a branch's default build: a branch set to an exact build keeps it, and a branch
-that follows Latest build uses the new build. Use long-lived branches like
-`main` or `staging`. Don't pass per-PR values like `${{ github.head_ref }}`;
-branches can't be deleted yet.
+Uploading to a `branch` that does not exist creates it. The upload never pins
+the branch: a pinned branch keeps its build, and a branch on Latest build runs
+the new build because it is the newest. Use long-lived branches like `main` or
+`staging`. Don't pass per-PR values like `${{ github.head_ref }}`; branches
+can't be deleted.
 
 ### Environment Variables
 
@@ -325,6 +335,15 @@ jobs:
   with:
     test-id: 'your-test-id'
     build-id: ${{ steps.upload.outputs.build-id }}
+  env:
+    REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
+
+# On the newest build across all of the app's branches
+- name: Run Test on the Newest Build
+  uses: RevylAI/revyl-gh-action/run-test@main
+  with:
+    test-id: 'your-test-id'
+    all-branches: 'true'
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 ```

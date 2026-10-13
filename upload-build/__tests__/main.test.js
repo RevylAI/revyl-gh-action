@@ -424,9 +424,9 @@ describe('Upload Build Action', () => {
 
     test.each([
       [
-        'an exact default build stays',
+        'the branch stays pinned to another build',
         ['version-12', 'v1.2', 'version-12'],
-        "   Branch: staging (default build stays v1.2; runs won't use this upload)"
+        "   Branch: staging (pinned to v1.2; runs that don't choose a build keep using v1.2)"
       ],
       [
         'Latest build uses the upload',
@@ -483,7 +483,7 @@ describe('Upload Build Action', () => {
         branch_id: 'branch-1'
       })
       expect(core.info).toHaveBeenCalledWith(
-        '   Branch: staging (default build is now 1.0.0)'
+        '   Branch: staging (pinned to this build)'
       )
     })
 
@@ -524,7 +524,7 @@ describe('Upload Build Action', () => {
         build_var_id: 'test-app-id'
       })
       expect(core.warning).toHaveBeenCalledWith(
-        "Couldn't check which build runs on the app default branch: no runnable build (no_compatible_build)"
+        "Couldn't check which build runs on the app default branch: no usable build (no_compatible_build)"
       )
       expect(core.setFailed).not.toHaveBeenCalled()
     })

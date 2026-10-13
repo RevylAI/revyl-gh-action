@@ -58,10 +58,10 @@ supports both direct file uploads and Expo URL ingestion.
 
 `branch` sets the Revyl branch the build belongs to and creates it if it does
 not exist. Without it, the build goes to the app default branch. The upload
-never changes a branch's default build: a branch set to an exact build keeps it,
-and a branch that follows Latest build uses the new build, because it is the
-newest. Use long-lived branches like `main` or `staging`. Don't pass per-PR
-values like `${{ github.head_ref }}`; branches can't be deleted yet.
+never pins the branch: a pinned branch keeps its build, and a branch on Latest
+build runs the new build because it is the newest. Use long-lived branches like
+`main` or `staging`. Don't pass per-PR values like `${{ github.head_ref }}`;
+branches can't be deleted.
 
 Build metadata still records its Git `branch`: the pull request's branch on
 `pull_request` runs, and the pushed branch or tag otherwise.

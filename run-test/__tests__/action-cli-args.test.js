@@ -174,6 +174,7 @@ function runStep(actionFile, stepName, inputs, cli = {}) {
 }
 
 const JSON_FLAGS = ['--json', '--github-actions', '--open=false']
+const FIRST_ALL_BRANCHES_CLI = { versionOutput: 'revyl version 0.1.149' }
 
 describe('CLI arguments built by the composite actions', () => {
   const workDirs = []
@@ -194,6 +195,13 @@ describe('CLI arguments built by the composite actions', () => {
     return result
   }
 
+  function expectRefusedBeforeRun(result, message) {
+    expect(result.cliArgs).toEqual([])
+    expect(result.stdout).toContain(`::error::${message}`)
+    expect(result.outputs).toContain(`error_message=${message}\n`)
+    expect(result.outputs).toContain('success=false')
+  }
+
   afterEach(() => {
     for (const workDir of workDirs.splice(0)) {
       fs.rmSync(workDir, { recursive: true, force: true })
@@ -201,7 +209,8 @@ describe('CLI arguments built by the composite actions', () => {
   })
 
   describe('run-test', () => {
-    const runTest = inputs => run('run-test/action.yml', 'Run via CLI', inputs)
+    const runTest = (inputs, cli) =>
+      run('run-test/action.yml', 'Run via CLI', inputs, cli)
 
     it('passes no branch when branch is omitted', () => {
       const result = runTest({ 'test-id': 'test-123' })
@@ -273,11 +282,56 @@ describe('CLI arguments built by the composite actions', () => {
           .filter(name => name.startsWith('injected'))
       ).toEqual([])
     })
+
+    it('passes --all-branches when all-branches is true', () => {
+      const result = runTest(
+        { 'test-id': 'test-123', 'all-branches': 'true' },
+        FIRST_ALL_BRANCHES_CLI
+      )
+
+      expect(result.cliArgs).toEqual([
+        'test',
+        'run',
+        'test-123',
+        ...JSON_FLAGS,
+        '--all-branches'
+      ])
+    })
+
+    it('passes --all-branches to workflow runs', () => {
+      const result = runTest(
+        { 'workflow-id': 'wf-123', 'all-branches': 'true' },
+        FIRST_ALL_BRANCHES_CLI
+      )
+
+      expect(result.cliArgs).toEqual([
+        'workflow',
+        'run',
+        'wf-123',
+        ...JSON_FLAGS,
+        '--all-branches'
+      ])
+    })
+
+    it('refuses all-branches with a build ID before running', () => {
+      for (const buildInput of ['build-id', 'build-version-id']) {
+        const result = runFailing('run-test/action.yml', 'Run via CLI', {
+          'test-id': 'test-123',
+          [buildInput]: 'build-456',
+          'all-branches': 'true'
+        })
+
+        expectRefusedBeforeRun(
+          result,
+          `The all-branches input can't be combined with ${buildInput}. Remove one of them.`
+        )
+      }
+    })
   })
 
   describe('run-workflow', () => {
-    const runWorkflow = inputs =>
-      run('run-workflow/action.yml', 'Execute workflow via CLI', inputs)
+    const runWorkflow = (inputs, cli) =>
+      run('run-workflow/action.yml', 'Execute workflow via CLI', inputs, cli)
 
     it('passes no branch when branch is omitted', () => {
       const result = runWorkflow({ 'workflow-id': 'wf-123' })
@@ -322,6 +376,21 @@ describe('CLI arguments built by the composite actions', () => {
           .readdirSync(result.workDir)
           .filter(name => name.startsWith('injected'))
       ).toEqual([])
+    })
+
+    it('passes --all-branches when all-branches is true', () => {
+      const result = runWorkflow(
+        { 'workflow-id': 'wf-123', 'all-branches': 'true' },
+        FIRST_ALL_BRANCHES_CLI
+      )
+
+      expect(result.cliArgs).toEqual([
+        'workflow',
+        'run',
+        'wf-123',
+        ...JSON_FLAGS,
+        '--all-branches'
+      ])
     })
   })
 
@@ -449,7 +518,170 @@ describe('CLI arguments built by the composite actions', () => {
         expect(result.summary).toContain(`**Error:** ${MISSING_BRANCH_ERROR}`)
       })
     })
+
+    describe(`${resource} all-branches input`, () => {
+      it('passes no flag when all-branches is false or blank', () => {
+        for (const allBranches of ['false', '', '  ']) {
+          const result = run(actionFile, stepName, {
+            ...target,
+            'all-branches': allBranches
+          })
+
+          expect(result.cliArgs).not.toContain('--all-branches')
+        }
+      })
+
+      it('trims surrounding whitespace from all-branches', () => {
+        const result = run(
+          actionFile,
+          stepName,
+          { ...target, 'all-branches': ' true\n' },
+          FIRST_ALL_BRANCHES_CLI
+        )
+
+        expect(result.cliArgs.at(-1)).toBe('--all-branches')
+      })
+
+      it('accepts only true or false', () => {
+        for (const allBranches of ['yes', 'True', '1']) {
+          const result = runFailing(actionFile, stepName, {
+            ...target,
+            'all-branches': allBranches
+          })
+
+          expectRefusedBeforeRun(
+            result,
+            'The all-branches input must be true or false.'
+          )
+        }
+      })
+
+      it('never evaluates the all-branches value as shell code', () => {
+        const result = runFailing(actionFile, stepName, {
+          ...target,
+          'all-branches': 'x$(touch injected)`touch injected-too`'
+        })
+
+        expectRefusedBeforeRun(
+          result,
+          'The all-branches input must be true or false.'
+        )
+        expect(
+          fs
+            .readdirSync(result.workDir)
+            .filter(name => name.startsWith('injected'))
+        ).toEqual([])
+      })
+
+      it('refuses all-branches with branch before running', () => {
+        const result = runFailing(actionFile, stepName, {
+          ...target,
+          branch: 'staging',
+          'all-branches': 'true'
+        })
+
+        expectRefusedBeforeRun(
+          result,
+          "The all-branches input can't be combined with branch. Remove one of them."
+        )
+      })
+
+      it('stops before running when the CLI is older than 0.1.149', () => {
+        const olderCli = { versionOutput: 'revyl version 0.1.148' }
+        const result = runFailing(
+          actionFile,
+          stepName,
+          { ...target, 'all-branches': 'true' },
+          olderCli
+        )
+
+        expectRefusedBeforeRun(
+          result,
+          'The all-branches input needs Revyl CLI 0.1.149 or newer (found 0.1.148).'
+        )
+        expect(run(actionFile, stepName, target, olderCli).cliArgs[1]).toBe(
+          'run'
+        )
+        expect(
+          run(actionFile, stepName, { ...target, branch: 'staging' }, olderCli)
+            .cliArgs
+        ).toContain('--branch=staging')
+      })
+    })
   }
+
+  describe('literal text in job summaries', () => {
+    const literal =
+      'Checkout & <b>Pay</b> &lt; | `code` *bold* _em_ [link](target) ~~strike~~ #'
+    const escaped =
+      'Checkout &amp; &lt;b&gt;Pay&lt;/b&gt; &amp;lt; &#124; &#96;code&#96; &#42;bold&#42; &#95;em&#95; &#91;link&#93;(target) &#126;&#126;strike&#126;&#126; &#35;'
+
+    for (const [actionFile, stepName, resource] of [
+      ['run-test/action.yml', 'Run via CLI', 'test'],
+      ['run-test/action.yml', 'Run via CLI', 'workflow'],
+      ['run-workflow/action.yml', 'Execute workflow via CLI', 'workflow']
+    ]) {
+      for (const success of [true, false]) {
+        it(`${actionFile} escapes ${resource} summary text with success=${success} and preserves raw outputs`, () => {
+          const testResult = {
+            branch_name: literal,
+            build_version: literal,
+            duration: literal,
+            platform: literal,
+            success,
+            test_name: literal
+          }
+          const cliOutput = JSON.stringify(
+            {
+              ...(resource === 'test'
+                ? testResult
+                : { workflow_name: literal, tests: [testResult] }),
+              duration: literal,
+              error: success ? '' : literal,
+              status: literal,
+              success,
+              task_id: 'task-123'
+            },
+            null,
+            2
+          )
+          const result = (success ? run : runFailing)(
+            actionFile,
+            stepName,
+            { [`${resource}-id`]: 'target-123' },
+            { cliOutput, cliExitCode: success ? 0 : 1 }
+          )
+          const title = resource === 'test' ? 'Test' : 'Workflow'
+          const buildLabel = resource === 'test' ? 'Build' : 'Builds'
+
+          expect(result.summary).toContain(`## Revyl ${title}: ${escaped}\n`)
+          expect(result.summary).toContain(
+            `**Status:** <code>${escaped}</code> | **Duration:** ${escaped}\n`
+          )
+          expect(result.summary).toContain(
+            `**${buildLabel}:** ${escaped} from branch ${escaped}\n`
+          )
+          expect(result.stdout).toContain(cliOutput)
+          expect(result.stdout).toContain(
+            `${buildLabel}: ${literal} from branch ${literal}\n`
+          )
+          expect(result.outputs).toContain(`execution_time=${literal}\n`)
+          if (!success) {
+            expect(result.summary).toContain(`**Error:** ${escaped}\n`)
+            expect(result.outputs).toContain(`error_message=${literal}\n`)
+          }
+          if (resource === 'workflow') {
+            expect(result.summary).toContain(
+              `| ${escaped} | ${escaped} | ${success ? 'Passed' : 'Failed'} | ${escaped} |\n`
+            )
+          }
+          if (actionFile === 'run-workflow/action.yml') {
+            expect(result.outputs).toContain(`status=${literal}\n`)
+          }
+        })
+      }
+    }
+  })
 
   describe('build the run used', () => {
     it('run-test names the build a test ran', () => {
@@ -473,8 +705,10 @@ describe('CLI arguments built by the composite actions', () => {
         }
       )
 
-      expect(result.stdout).toContain('Build: v1.3 on release "2"\n')
-      expect(result.summary).toContain('**Build:** v1.3 on release "2"')
+      expect(result.stdout).toContain('Build: v1.3 from branch release "2"\n')
+      expect(result.summary).toContain(
+        '**Build:** v1.3 from branch release "2"'
+      )
     })
 
     it('run-test leaves the line out when the CLI does not report a build', () => {
@@ -527,10 +761,10 @@ describe('CLI arguments built by the composite actions', () => {
         )
 
         expect(result.stdout).toContain(
-          'Builds: v1.3 on main, v2.0 on staging\n'
+          'Builds: v1.3 from branch main, v2.0 from branch staging\n'
         )
         expect(result.summary).toContain(
-          '**Builds:** v1.3 on main, v2.0 on staging'
+          '**Builds:** v1.3 from branch main, v2.0 from branch staging'
         )
       })
 

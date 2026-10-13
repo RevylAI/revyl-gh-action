@@ -31639,12 +31639,12 @@ function apiErrorMessage(error) {
   return typeof detail === 'string' ? detail : error.message
 }
 
-function describeBranchRunBuild(upload, resolved, hasExactDefaultBuild) {
-  if (hasExactDefaultBuild && resolved.version_id === upload.buildId) {
-    return `default build is now ${upload.version}`
+function describeBranchRunBuild(upload, resolved, branchIsPinned) {
+  if (branchIsPinned && resolved.version_id === upload.buildId) {
+    return 'pinned to this build'
   }
-  if (hasExactDefaultBuild) {
-    return `default build stays ${resolved.version}; runs won't use this upload`
+  if (branchIsPinned) {
+    return `pinned to ${resolved.version}; runs that don't choose a build keep using ${resolved.version}`
   }
   if (resolved.version_id === upload.buildId) {
     return 'Latest build: runs use this upload'
@@ -31655,8 +31655,7 @@ function describeBranchRunBuild(upload, resolved, hasExactDefaultBuild) {
 /**
  * Logs which build a run that picks no build now uses on the upload's branch,
  * through the resolver `revyl build which` uses. Uploads from this action never
- * change a branch's default build. A failed check only warns: the upload
- * already succeeded.
+ * pin their branch. A failed check only warns: the upload already succeeded.
  * @param {object} client Authenticated HTTP client.
  * @param {string} backendUrl Revyl backend base URL.
  * @param {string} appId App the build was uploaded to.
@@ -31678,7 +31677,7 @@ async function logUploadedBuildBranch(client, backendUrl, appId, upload) {
     const resolved = resolveRes.result
     if (!resolved?.version_id || !resolved.branch_id) {
       throw Error(
-        `no runnable build (${resolved?.resolution_status || `status ${resolveRes.statusCode}`})`
+        `no usable build (${resolved?.resolution_status || `status ${resolveRes.statusCode}`})`
       )
     }
     const branchRes = await client.getJson(
