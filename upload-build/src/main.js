@@ -2,6 +2,7 @@ const core = require('@actions/core')
 const httm = require('@actions/http-client')
 const fs = require('fs')
 const path = require('path')
+const { readGithubEventPayload, detectGithubBranch } = require('./github')
 
 function splitRepository(repository) {
   if (!repository || !repository.includes('/')) {
@@ -9,18 +10,6 @@ function splitRepository(repository) {
   }
   const [namespace, ...rest] = repository.split('/')
   return { namespace, project: rest.join('/') || null }
-}
-
-function readGithubEventPayload() {
-  if (!process.env.GITHUB_EVENT_PATH) {
-    return null
-  }
-  try {
-    return JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
-  } catch (e) {
-    core.info('Could not read GitHub event payload for SCM metadata')
-    return null
-  }
 }
 
 function inferPlatformFromFilePath(filePath) {
@@ -40,13 +29,15 @@ function inferPlatformFromFilePath(filePath) {
   return null
 }
 
-function collectGithubActionsMetadata(filePath) {
+function collectGithubActionsMetadata(
+  filePath,
+  eventData = readGithubEventPayload()
+) {
   const autoMetadata = {}
   if (process.env.GITHUB_ACTIONS !== 'true') {
     return autoMetadata
   }
 
-  const eventData = readGithubEventPayload()
   const repository =
     eventData?.repository?.full_name || process.env.GITHUB_REPOSITORY
   const { namespace, project } = splitRepository(repository)
@@ -190,6 +181,13 @@ async function run() {
 
     const version = core.getInput('version', { required: true })
     const branch = core.getInput('branch', { required: false })
+    const githubEvent = readGithubEventPayload()
+    const gitBranch = branch ? null : detectGithubBranch(githubEvent)
+    const destination = branch
+      ? { branch_name: branch }
+      : gitBranch
+        ? { git_branch_name: gitBranch }
+        : {}
     const filePath = core.getInput('file-path', { required: false })
     const expoUrl = core.getInput('expo-url', { required: false })
     const expoHeaders = core.getInput('expo-headers', { required: false })
@@ -200,8 +198,11 @@ async function run() {
       10
     )
 
-    // Hardcode the correct backend URL - users shouldn't need to know this
-    const backendUrl = 'https://backend.revyl.ai'
+    const backendUrl = (
+      core.getInput('backend-url', { required: false }) ||
+      process.env.REVYL_BACKEND_URL ||
+      'https://backend.revyl.ai'
+    ).replace(/\/+$/, '')
 
     // Validate inputs
     if (!filePath && !expoUrl) {
@@ -224,7 +225,7 @@ async function run() {
     }
 
     // Automatically inject GitHub Actions CI/CD + SCM metadata.
-    const autoMetadata = collectGithubActionsMetadata(filePath)
+    const autoMetadata = collectGithubActionsMetadata(filePath, githubEvent)
 
     // Merge auto metadata with user metadata (user metadata takes precedence)
     const finalMetadata = { ...autoMetadata, ...parsedMetadata }
@@ -250,8 +251,14 @@ async function run() {
       }
     }
 
-    if (branch) {
-      core.info(`Uploading to Revyl branch: ${branch}`)
+    if (branch || gitBranch) {
+      core.info(
+        `Uploading to Revyl branch: ${branch || gitBranch} (${branch ? 'branch input' : 'Git branch'})`
+      )
+    } else {
+      core.info(
+        "Uploading to the app's default branch: this run has no Git branch, such as a tag build"
+      )
     }
 
     const client = new httm.HttpClient('revyl-upload-build-action', [], {
@@ -266,7 +273,7 @@ async function run() {
     let packageId = null
     let artifactUrl = null
     let uploadBranchId = null
-    let uploadBranchName = branch || null
+    let uploadBranchName = branch || gitBranch || null
 
     if (expoUrl) {
       // Handle Expo URL upload using the from-url endpoint
@@ -277,10 +284,8 @@ async function run() {
         version: version,
         from_url: expoUrl,
         headers: parsedExpoHeaders,
-        metadata: finalMetadata
-      }
-      if (branch) {
-        fromUrlBody.branch_name = branch
+        metadata: finalMetadata,
+        ...destination
       }
 
       core.info(`Making request to: ${backendUrl}${fromUrlEndpoint}`)
@@ -348,11 +353,9 @@ async function run() {
       const uploadUrlEndpoint = `/api/v1/apps/${resolvedAppId}/builds/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
-        file_name: fileName
+        file_name: fileName,
+        ...destination
       })
-      if (branch) {
-        uploadUrlParams.set('branch_name', branch)
-      }
 
       core.info(
         `Getting upload URL from: ${backendUrl}${uploadUrlEndpoint}?${uploadUrlParams}`

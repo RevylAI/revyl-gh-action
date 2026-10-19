@@ -18,8 +18,9 @@ inputs:
     required: true
   branch:
     description:
-      'Revyl branch to upload the build to. Created if it does not exist.
-      Defaults to the app default branch.'
+      "Revyl branch to upload to, created if missing. Omit to use the run's Git
+      branch, such as the pull request's source branch; tag runs use the app's
+      default branch."
     required: false
   file-path:
     description:
@@ -45,6 +46,9 @@ inputs:
       'Package name/identifier for the build (will be auto-extracted if not
       provided).'
     required: false
+  backend-url:
+    description: 'Override backend base URL (default: https://backend.revyl.ai)'
+    required: false
   timeout:
     description:
       'Timeout in seconds for the upload operation. Default 1800 (30 minutes).'
@@ -61,7 +65,7 @@ outputs:
     description:
       'DEPRECATED: Use build-id instead. The ID of the created build.'
   version:
-    description: 'The version string of the uploaded build.'
+    description: 'The version label of the uploaded build.'
   package-id:
     description: 'The extracted package ID from the build artifact.'
   upload-time:

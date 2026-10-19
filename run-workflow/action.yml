@@ -12,14 +12,13 @@ inputs:
     required: false
   workflow_id:
     description:
-      'Deprecated alias for workflow-id. Prefer workflow-id in all new workflows.'
+      'Deprecated alias for workflow-id. Prefer workflow-id in all new
+      workflows.'
     required: false
   branch:
     description:
-      "Revyl branch to run every app in the workflow on. Defaults to the saved
-      selections of the workflow, which use the app default branch unless
-      changed. Each app runs the branch's default build: its pinned build, or
-      its newest build when it isn't pinned."
+      "Revyl branch for every app in this run, using each app's default build
+      there. Omit to use the saved choices."
     required: false
   all-branches:
     description:

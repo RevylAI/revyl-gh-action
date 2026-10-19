@@ -18,7 +18,7 @@ generation.
 
 ```yaml
 - name: Run Revyl Test
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     timeout: '1800' # 30 minutes
@@ -30,7 +30,7 @@ generation.
 
 ```yaml
 - name: Run Revyl Workflow
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     workflow-id: 'your-workflow-id'
     timeout: '3600' # 1 hour
@@ -43,7 +43,7 @@ generation.
 ```yaml
 - name: Upload Build
   id: upload-build
-  uses: ./actions/upload-build
+  uses: RevylAI/revyl-gh-action/upload-build@main
   with:
     app-id: 'your-revyl-app-id'
     version: '${{ github.sha }}'
@@ -52,7 +52,7 @@ generation.
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
 
 - name: Run Test with New Build
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     build-id: ${{ steps.upload-build.outputs.build-id }}
@@ -65,7 +65,7 @@ generation.
 
 ```yaml
 - name: Run Revyl Test on staging
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     branch: 'staging'
@@ -74,19 +74,28 @@ generation.
 ```
 
 `branch` picks the Revyl branch for this run only. The run uses the branch's
-default build: its pinned build, or its newest build when it isn't pinned.
-Without `branch`, the run uses the saved selection of the test or workflow,
-which is the app default branch unless changed. A `build-id` given with `branch`
-must belong to that branch, or the run fails before it starts. `branch` needs
-Revyl CLI 0.1.148 or later; the default `cli-version: latest` has it. Use
-long-lived branches like `main` or `staging`. Don't pass per-PR values like
-`${{ github.head_ref }}`; branches can't be deleted.
+default build (its pin, or its Latest build). A `build-id` given with `branch`
+must belong to that branch, or the run fails before it starts. A branch you set
+never falls back. `branch` needs Revyl CLI 0.1.148 or later. Use it for
+long-lived branches like `main` or `staging`.
+
+Without `branch`, the run uses the test's or workflow's saved choice; saved
+branches and exact builds stay fixed. A test saved on Default branch runs on the
+job's Git branch (in a pull request, its source branch, `owner:branch` for a
+fork) when that branch has a usable build, otherwise on the app's default
+branch.
+
+Tests created in the dashboard start on All branches · Latest build, so a pull
+request job can run another pull request's upload. To test the pull request's
+own build, pass the upload's `build-id` (test runs only), or save the test on
+Default branch; see
+[New saved choices](https://docs.revyl.com/builds/branches#new-saved-choices).
 
 ### Run on the Newest Build Across All Branches
 
 ```yaml
 - name: Run Revyl Test on the newest build
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     all-branches: 'true'
@@ -108,7 +117,7 @@ execution.
 
 ```yaml
 - name: Launch Revyl Test (No-Wait)
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     no-wait: 'true'
@@ -120,12 +129,11 @@ execution.
 
 ```yaml
 - name: Run Revyl Test with Custom Settings
-  uses: ./actions/run-test
+  uses: RevylAI/revyl-gh-action/run-test@main
   with:
     test-id: 'your-test-id'
     retries: '2'
     build-id: 'specific-build-id'
-    cli-version: 'v0.1.5'
     timeout: '2400' # 40 minutes
   env:
     REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -133,19 +141,19 @@ execution.
 
 ## Inputs
 
-| Input              | Description                                                    | Required | Default         |
-| ------------------ | -------------------------------------------------------------- | -------- | --------------- |
-| `test-id`          | ID of the test to run                                          | No\*     |                 |
-| `workflow-id`      | ID of the workflow to run (preferred)                          | No\*     |                 |
-| `workflow_id`      | Deprecated alias for `workflow-id`                             | No       |                 |
-| `retries`          | Number of retries for failed tests                             | No       | `1`             |
-| `build-id`         | Build ID to use (preferred over deprecated `build-version-id`) | No       |                 |
-| `build-version-id` | Deprecated alias for `build-id`                                | No       |                 |
-| `branch`           | Revyl branch to run on; a `build-id` must belong to it         | No       | Saved selection |
-| `all-branches`     | Run on the newest build across all branches                    | No       | `false`         |
-| `timeout`          | Maximum time to wait (seconds)                                 | No       | `3600`          |
-| `no-wait`          | Launch and exit immediately without waiting for completion     | No       | `false`         |
-| `cli-version`      | Revyl CLI version used by action runtime                       | No       | `latest`        |
+| Input              | Description                                                | Required | Default      |
+| ------------------ | ---------------------------------------------------------- | -------- | ------------ |
+| `test-id`          | ID of the test to run                                      | No\*     |              |
+| `workflow-id`      | ID of the workflow to run (preferred)                      | No\*     |              |
+| `workflow_id`      | Deprecated alias for `workflow-id`                         | No       |              |
+| `retries`          | Number of retries for failed tests                         | No       | `1`          |
+| `build-id`         | Exact build ID to run; test runs only                      | No       |              |
+| `build-version-id` | Deprecated alias for `build-id`                            | No       |              |
+| `branch`           | Revyl branch to run on; a `build-id` must belong to it     | No       | Saved choice |
+| `all-branches`     | Run on the newest build across all branches                | No       | `false`      |
+| `timeout`          | Maximum time to wait (seconds)                             | No       | `3600`       |
+| `no-wait`          | Launch and exit immediately without waiting for completion | No       | `false`      |
+| `cli-version`      | Revyl CLI version used by action runtime                   | No       | `latest`     |
 
 \*Either `test-id`, `workflow-id` (preferred), or `workflow_id` (deprecated
 alias) must be provided, but not both test and workflow IDs.
@@ -189,7 +197,7 @@ Status: running | Phase: executing | Current Step: "Click login button" | Step P
 Status: running | Phase: executing | Current Step: "Verify dashboard" | Step Progress: 4/5 | Progress: 80%
 Status: running | Phase: executing | Current Step: "Logout" | Step Progress: 5/5 | Progress: 100%
 ✅ Test completed successfully: Login Flow Test
-📊 Report available at: https://backend-staging.revyl.ai/tests/test_123/history/hist_456
+📊 Report available at: https://app.revyl.ai/tests/report?taskId=task_123
 ```
 
 ## Error Handling
@@ -229,7 +237,7 @@ jobs:
 
       - name: Run Login Test
         id: login-test
-        uses: ./actions/run-test
+        uses: RevylAI/revyl-gh-action/run-test@main
         with:
           test-id: 'login-flow-test'
           timeout: '1200'
@@ -258,25 +266,4 @@ jobs:
 
 ## Changelog
 
-### v2.2.0 (Current)
-
-- **NEW**: Optional `all-branches` input to run on the newest build across all
-  branches
-
-### v2.1.0
-
-- **NEW**: Optional `branch` input to run on a Revyl branch
-
-### v2.0.0
-
-- **NEW**: Real-time monitoring via Server-Sent Events
-- **NEW**: Automatic report link extraction and output
-- **NEW**: Enhanced progress tracking with phases and steps
-- **IMPROVED**: Better error handling and timeout management
-- **IMPROVED**: More detailed logging and status updates
-
-### v1.0.0
-
-- Basic polling-based test execution
-- Simple status checking
-- Basic timeout handling
+See the [release notes](../docs/release-notes.md).

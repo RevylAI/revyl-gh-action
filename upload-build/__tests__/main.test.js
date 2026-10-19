@@ -2,6 +2,7 @@ const { run, collectGithubActionsMetadata } = require('../src/main')
 const core = require('@actions/core')
 const httm = require('@actions/http-client')
 const fs = require('fs')
+const originalEnv = process.env
 
 // Mock the modules
 jest.mock('@actions/core')
@@ -40,6 +41,10 @@ describe('Upload Build Action', () => {
   let mockSendStream
 
   beforeEach(() => {
+    process.env = { ...originalEnv }
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('GITHUB_')) delete process.env[key]
+    }
     // Reset all mocks
     jest.clearAllMocks()
 
@@ -63,19 +68,12 @@ describe('Upload Build Action', () => {
 
     // Mock environment
     process.env.REVYL_API_KEY = 'test-api-key'
+    delete process.env.REVYL_BACKEND_URL
     delete process.env.GITHUB_HEAD_REF
   })
 
   afterEach(() => {
-    delete process.env.REVYL_API_KEY
-    delete process.env.GITHUB_ACTIONS
-    delete process.env.GITHUB_REPOSITORY
-    delete process.env.GITHUB_RUN_ID
-    delete process.env.GITHUB_SHA
-    delete process.env.GITHUB_REF_NAME
-    delete process.env.GITHUB_EVENT_PATH
-    delete process.env.GITHUB_RUN_NUMBER
-    delete process.env.GITHUB_RUN_ATTEMPT
+    process.env = originalEnv
   })
 
   test('should fail when no API key is provided', async () => {
@@ -158,6 +156,46 @@ describe('Upload Build Action', () => {
     expect(core.setOutput).toHaveBeenCalledWith('version', '1.0.0')
     expect(core.setOutput).toHaveBeenCalledWith('package-id', 'com.example.app')
   })
+
+  test.each([
+    ['', '', 'https://backend.revyl.ai'],
+    [
+      '',
+      'https://backend-staging.revyl.ai/',
+      'https://backend-staging.revyl.ai'
+    ],
+    [
+      'https://worktree.revyl.ai/',
+      'https://backend-staging.revyl.ai',
+      'https://worktree.revyl.ai'
+    ]
+  ])(
+    'uses backend input %s before environment %s',
+    async (input, environment, expected) => {
+      process.env.REVYL_BACKEND_URL = environment
+      core.getInput.mockImplementation(name => {
+        const inputs = {
+          'app-id': 'test-app-id',
+          version: '1.0.0',
+          'expo-url': 'https://expo.dev/build/123',
+          'backend-url': input
+        }
+        return inputs[name] || ''
+      })
+      mockPostJson.mockResolvedValue({
+        statusCode: 200,
+        result: { id: 'version-123' }
+      })
+
+      await run()
+
+      expect(mockPostJson).toHaveBeenCalledWith(
+        `${expected}/api/v1/apps/test-app-id/builds/from-url`,
+        expect.any(Object)
+      )
+      expect(core.setOutput).toHaveBeenCalledWith('success', 'true')
+    }
+  )
 
   test('should handle file upload flow', async () => {
     core.getInput.mockImplementation(name => {
@@ -500,6 +538,35 @@ describe('Upload Build Action', () => {
       expect(core.info).toHaveBeenCalledWith('   Branch: staging')
       expect(core.warning).toHaveBeenCalledWith(
         "Couldn't check which build runs on staging: Branch resolution failed"
+      )
+    })
+
+    test('names the detected GitHub branch when the check fails', async () => {
+      process.env.GITHUB_ACTIONS = 'true'
+      process.env.GITHUB_REPOSITORY = 'acme/mobile-app'
+      process.env.GITHUB_REF = 'refs/heads/feature/login'
+      mockFileUpload()
+      core.getInput.mockImplementation(
+        name =>
+          ({
+            'app-id': 'test-app-id',
+            version: '1.0.0',
+            'file-path': '/path/to/file.apk'
+          })[name] || ''
+      )
+      const lookupError = new Error('{"detail":"Branch resolution failed"}')
+      lookupError.result = { detail: 'Branch resolution failed' }
+      mockPostJson.mockRejectedValueOnce(lookupError)
+
+      await run()
+
+      expect(core.setFailed).not.toHaveBeenCalled()
+      expect(mockPostJson.mock.calls[0][0]).toContain(
+        'git_branch_name=feature%2Flogin'
+      )
+      expect(core.info).toHaveBeenCalledWith('   Branch: feature/login')
+      expect(core.warning).toHaveBeenCalledWith(
+        "Couldn't check which build runs on feature/login: Branch resolution failed"
       )
     })
 

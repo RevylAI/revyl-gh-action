@@ -22,21 +22,18 @@ inputs:
     required: false
     default: '1'
   build-id:
-    description: 'Exact build ID to run (overrides the saved selection)'
+    description: 'Exact build ID to run (overrides the saved choice)'
     required: false
   build-version-id:
     description:
       'DEPRECATED: Use build-id instead. Exact build ID to run (overrides the
-      saved selection)'
+      saved choice)'
     required: false
     deprecationMessage: 'build-version-id is deprecated. Use build-id instead.'
   branch:
     description:
-      "Revyl branch to run on. Defaults to the saved selection of the test or
-      workflow, which is the app default branch unless changed. Without
-      build-id, the run uses the branch's default build: its pinned build, or
-      its newest build when it isn't pinned. With build-id, that build must
-      belong to this branch or the run fails before it starts."
+      'Revyl branch for this run, using its default build; a build-id must
+      belong to it. Omit to use the saved choice.'
     required: false
   all-branches:
     description:

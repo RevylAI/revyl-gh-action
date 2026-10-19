@@ -1,5 +1,50 @@
 # Release Notes
 
+## v2.3.0 - Uploads follow the Git branch (unreleased)
+
+### Changes
+
+- Without `branch`, `upload-build` uploads to the run's Git branch: the pull
+  request's source branch (`owner:branch` for forks) or the branch the run is
+  on, even without a checkout, and creates it if needed. Tag runs, and jobs with
+  no branch to read, still upload to the app's default branch. A detected name
+  that can't be a Revyl branch fails before upload. Uploads don't pin the
+  branch.
+- Every branch you upload from becomes a Revyl branch, and branches can't be
+  deleted. Merge queue runs (`gh-readonly-queue/...`, one per entry) and bot
+  branches create one each; set `branch` in those workflows.
+- With CLI 0.1.177 or later, tests saved on Default branch run on the job's Git
+  branch in `run-test` and `run-workflow` when it has a usable build, otherwise
+  on the app's default branch. Older CLIs use the app's default branch. Saved
+  branches, exact builds, `branch` and `all-branches` aren't affected.
+- Tests and workflow app overrides created in the dashboard start on All
+  branches · Latest build, so a pull request job can run another pull request's
+  upload. To test a pull request's own build, pass the upload's `build-id` to
+  `run-test`, or save the test on Default branch; see
+  [New saved choices](https://docs.revyl.com/builds/branches#new-saved-choices).
+
+### Upgrading
+
+- A job on `main` now uploads to a Revyl branch named `main`, not to the app's
+  default branch (`base` unless you changed it). Embeds, the app's preview link,
+  and dashboard and scheduled runs saved on Default branch use the default
+  branch, so they stop picking up new CI builds. Make `main` the default branch
+  (`revyl app branch default main --app <app>`), or set `branch: base` (your
+  default branch's name, if you changed it) to keep the old destination.
+- Workflows on `@v2` or `@main` get this change without edits. Pin `@v2.2.1`, or
+  set `branch`, to keep the old destination.
+- Runs follow the Git branch through the CLI, not the Action, so with the
+  default `cli-version: latest` every Action version does from CLI 0.1.177 on.
+  To keep the old run behavior, pin `cli-version` to an earlier release, such as
+  `v0.1.174`.
+
+See
+[Keep a source-of-truth branch current](https://docs.revyl.com/builds/branches#keep-a-source-of-truth-branch-current)
+and
+[Choose where CI uploads go](https://docs.revyl.com/builds/ci-builds#choose-where-ci-uploads-go).
+
+---
+
 ## v2.2.1 - Literal summary text (2026-10-13)
 
 ### Changes

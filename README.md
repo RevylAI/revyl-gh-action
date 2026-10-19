@@ -31,12 +31,12 @@ The simplest way to upload a build to Revyl:
 
 ```bash
 # Android APK
-curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}" \
+curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}&branch_name={BRANCH}" \
   -H "Authorization: Bearer $REVYL_API_KEY" \
   -F "file=@./app.apk"
 
 # iOS App (zip)
-curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}" \
+curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload?version={VERSION}&branch_name={BRANCH}" \
   -H "Authorization: Bearer $REVYL_API_KEY" \
   -F "file=@./MyApp.zip"
 ```
@@ -44,7 +44,9 @@ curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload
 **Parameters:**
 
 - `APP_ID` - Your Revyl app ID (from the app's Overview page)
-- `VERSION` - Version string (e.g., `1.0.0`, `build-123`)
+- `VERSION` - Version label, unique within the app (e.g., `1.0.0`, `build-123`)
+- `BRANCH` - Revyl branch to upload to, URL-encoded; created if missing. Drop
+  `&branch_name=...` to upload to the app's default branch
 - `REVYL_API_KEY` - Your API key
 
 **Response:**
@@ -53,6 +55,8 @@ curl -X POST "https://backend.revyl.ai/api/v1/apps/{APP_ID}/builds/stream-upload
 {
   "id": "abc-123",
   "version": "1.0.0",
+  "branch_id": "def-456",
+  "branch_name": "staging",
   "package_name": "com.example.app",
   "artifact_url": "...",
   "metadata": {
@@ -75,6 +79,8 @@ We also provide helper scripts in `./scripts/`:
 node scripts/upload-local-build.js --app-id <id> --file <path> --version <ver>
 ```
 
+The scripts upload to the app's default branch.
+
 ## Available Actions
 
 ### Run Test Action (`run-test`)
@@ -85,74 +91,52 @@ retries, and shareable report generation.
 **Key Features:**
 
 - Real-time test execution monitoring via Server-Sent Events
-- Automatic build version integration for build-to-test pipelines
+- Pass the upload's `build-id` to test that exact build
 - Rich GitHub Actions logging with progress tracking
 - Shareable report links with authentication
 - Support for both individual tests and multi-test workflows
 
 **Input Parameters:**
 
-| Parameter          | Required | Description                                  | Default         |
-| ------------------ | -------- | -------------------------------------------- | --------------- |
-| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -               |
-| `test-id`          | No\*     | The ID of the test to run                    | -               |
-| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -               |
-| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -               |
-| `build-id`         | No       | ID of a specific build to use                | -               |
-| `build-version-id` | No       | Deprecated alias for `build-id`              | -               |
-| `branch`           | No       | Revyl branch to run on                       | Saved selection |
-| `all-branches`     | No       | Run on the newest build across all branches  | `false`         |
-| `retries`          | No       | Number of retries if test fails              | -               |
-| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`          |
-| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest`        |
+| Parameter          | Required | Description                                  | Default      |
+| ------------------ | -------- | -------------------------------------------- | ------------ |
+| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -            |
+| `test-id`          | No\*     | The ID of the test to run                    | -            |
+| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -            |
+| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -            |
+| `build-id`         | No       | Exact build ID to run; test runs only        | -            |
+| `build-version-id` | No       | Deprecated alias for `build-id`              | -            |
+| `branch`           | No       | Revyl branch to run on                       | Saved choice |
+| `all-branches`     | No       | Run on the newest build across all branches  | `false`      |
+| `retries`          | No       | Number of retries if test fails              | -            |
+| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`       |
+| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest`     |
 
 \* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id`
 is accepted as a deprecated alias.
 
-Without `branch`, a run uses the saved selection of its test or workflow, which
-is the app default branch unless changed. With `branch`, it uses that branch's
-default build: its pinned build, or its newest build when it isn't pinned. A
-`build-id` given with `branch` must belong to that branch, or the run fails
-before it starts. Use long-lived branches like `main` or `staging`. Don't pass
-per-PR values like `${{ github.head_ref }}`; branches can't be deleted.
-
-Set `all-branches: 'true'` to run on the newest build across all of the app's
-branches (All branches · Latest build) instead. It can't be combined with
-`branch` or `build-id` and needs Revyl CLI 0.1.149 or newer.
+`branch` runs on that Revyl branch's default build (its pin, or its Latest
+build); a `build-id` given with it must belong to it. Without `branch`, the
+test's saved choice applies; a test saved on Default branch runs on the job's
+Git branch when it has a usable build. `all-branches: 'true'` runs on the newest
+build across all branches. See the
+[run-test README](./run-test/README.md#run-on-a-branch) for the full rules.
 
 ### Run Workflow Action (`run-workflow`)
 
-Clean, dedicated CLI-first entrypoint for executing a Revyl workflow by
-`workflow-id` with workflow-focused inputs/outputs. For backward compatibility,
-`workflow_id` is accepted as a deprecated alias. Authentication can be passed
-through the `api-key` input or the `REVYL_API_KEY` environment variable. Set
-`branch` to run every app in the workflow on that Revyl branch instead of the
-saved selections. Each app runs the branch's default build: its pinned build, or
-its newest build when it isn't pinned. Use long-lived branches like `main` or
-`staging`. Don't pass per-PR values like `${{ github.head_ref }}`; branches
-can't be deleted. Set `all-branches: 'true'` instead of `branch` to run every
-app on its newest build across all of its branches; it needs Revyl CLI 0.1.149
-or newer.
+Dedicated CLI-first entrypoint for running a Revyl workflow by `workflow-id`.
+`branch` and `all-branches` work as in `run-test`, for every app in the
+workflow. See the
+[run-workflow README](./run-workflow/README.md#run-on-a-branch) for its inputs
+and branch rules.
 
 ```yaml
-# Same-repo usage
 - name: Run Revyl Workflow
-  uses: ./run-workflow
+  uses: RevylAI/revyl-gh-action/run-workflow@main
   with:
     api-key: ${{ secrets.REVYL_API_KEY }}
     workflow-id: 'your-workflow-id'
     timeout: '3600'
-    backend-url: 'https://backend-staging.revyl.ai'
-    cli-version: 'v0.1.5'
-
-# Cross-repo usage
-- name: Run Revyl Workflow
-  uses: RevylAI/revyl-gh-action/run-workflow@v2.2.1
-  with:
-    api-key: ${{ secrets.REVYL_API_KEY }}
-    workflow-id: 'your-workflow-id'
-    timeout: '3600'
-    cli-version: 'v0.1.5'
 ```
 
 ### Upload Build Action (`upload-build`)
@@ -171,39 +155,37 @@ injection and multi-source support.
 
 **Input Parameters:**
 
-| Parameter      | Required | Description                                              | Example                               |
-| -------------- | -------- | -------------------------------------------------------- | ------------------------------------- |
-| `app-id`       | Yes      | The Revyl app ID to upload to                            | `abc-123-def`                         |
-| `build-var-id` | No       | Deprecated alias for `app-id`                            | `abc-123-def`                         |
-| `version`      | Yes      | Version string for this build (must be unique)           | `1.0.0` or `${{ github.sha }}`        |
-| `branch`       | No       | Revyl branch to upload to (default: app default branch)  | `staging`                             |
-| `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                    | `./dist/app.apk`                      |
-| `expo-url`     | No\*     | Expo build URL to download from                          | `https://expo.dev/artifacts/...`      |
-| `expo-headers` | No       | JSON headers for Expo URL download                       | `'{"Authorization": "Bearer token"}'` |
-| `package-name` | No       | Package name/identifier (auto-extracted if not provided) | `com.example.app`                     |
-| `timeout`      | No       | Upload timeout in seconds                                | `1800` (30 min)                       |
+| Parameter      | Required | Description                                               | Example                               |
+| -------------- | -------- | --------------------------------------------------------- | ------------------------------------- |
+| `app-id`       | Yes      | The Revyl app ID to upload to                             | `abc-123-def`                         |
+| `build-var-id` | No       | Deprecated alias for `app-id`                             | `abc-123-def`                         |
+| `version`      | Yes      | Version label for this build, unique within the app       | `1.0.0` or `${{ github.sha }}`        |
+| `branch`       | No       | Revyl branch to upload to (default: the run's Git branch) | `staging`                             |
+| `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                     | `./dist/app.apk`                      |
+| `expo-url`     | No\*     | Expo build URL to download from                           | `https://expo.dev/artifacts/...`      |
+| `expo-headers` | No       | JSON headers for Expo URL download                        | `'{"Authorization": "Bearer token"}'` |
+| `package-name` | No       | Package name/identifier (auto-extracted if not provided)  | `com.example.app`                     |
+| `backend-url`  | No       | Revyl backend base URL                                    | `https://backend.revyl.ai`            |
+| `timeout`      | No       | Upload timeout in seconds                                 | `1800` (30 min)                       |
 
 \* Either `file-path` or `expo-url` must be provided (but not both)
 
-Uploading to a `branch` that does not exist creates it. The upload never pins
-the branch: a pinned branch keeps its build, and a branch on Latest build runs
-the new build because it is the newest. Use long-lived branches like `main` or
-`staging`. Don't pass per-PR values like `${{ github.head_ref }}`; branches
-can't be deleted.
+Without `branch`, the upload goes to the run's Git branch. See the
+[upload-build README](./upload-build/README.md#upload-to-a-branch).
 
 ### Environment Variables
 
-| Variable        | Required        | Description                                                                      |
-| --------------- | --------------- | -------------------------------------------------------------------------------- |
-| `REVYL_API_KEY` | Yes             | Your Revyl API key (get from [settings](https://auth.revyl.ai/account/api_keys)) |
-| `EXPO_TOKEN`    | For Expo builds | Your Expo access token (required when using `expo-url`)                          |
+| Variable            | Required        | Description                                                                      |
+| ------------------- | --------------- | -------------------------------------------------------------------------------- |
+| `REVYL_API_KEY`     | Yes             | Your Revyl API key (get from [settings](https://auth.revyl.ai/account/api_keys)) |
+| `REVYL_BACKEND_URL` | No              | Backend override; the `backend-url` input takes precedence                       |
+| `EXPO_TOKEN`        | For Expo builds | Your Expo access token (required when using `expo-url`)                          |
 
 ## Setting Up for Expo Builds
 
 When using Expo/EAS builds, you'll need:
 
 1. **Add EXPO_TOKEN to GitHub Secrets:**
-
    - Get your token from
      [Expo Access Tokens](https://expo.dev/accounts/[your-username]/settings/access-tokens)
    - Add as `EXPO_TOKEN` in your repository secrets
@@ -262,12 +244,14 @@ jobs:
       # Your build steps here (React Native, Expo, Flutter, etc.)
       # See complete examples: ./examples/
 
+      # Lands on the run's Git branch: the pull request's source branch, or
+      # main on a push. build-id below runs this exact build either way.
       - name: Upload Build to Revyl
         id: upload-build
         uses: RevylAI/revyl-gh-action/upload-build@main
         with:
           app-id: ${{ vars.REVYL_APP_ID }}
-          version: ${{ github.sha }}
+          version: ${{ github.event.pull_request.head.sha || github.sha }}
           file-path: path/to/your/app.apk
         env:
           REVYL_API_KEY: ${{ secrets.REVYL_API_KEY }}
@@ -298,7 +282,7 @@ jobs:
 # For Expo builds (iOS .tar.gz automatically converted to .zip)
 - name: Upload Expo Build
   uses: RevylAI/revyl-gh-action/upload-build@main
-    with:
+  with:
     app-id: 'your-revyl-app-id'
     version: '1.0.0'
     expo-url: 'https://expo.dev/artifacts/eas/...' # .tar.gz files are handled automatically
@@ -357,8 +341,9 @@ no configuration required.
 
 - `ci_run_url`: Direct link to the GitHub Actions run
 - `commit_sha`: Git commit SHA that triggered the build
-- `branch`: The pull request's branch on `pull_request` runs, otherwise the
-  pushed branch or tag (the `branch` input sets the Revyl branch)
+- `branch`: The Git branch or tag the run is on (the pull request's source
+  branch on pull request runs). It isn't always the Revyl branch; see the
+  [upload-build README](./upload-build/README.md#upload-to-a-branch)
 - `pr_number`: Pull request number (for PR builds)
 - `ci_system`: 'github-actions'
 - `ci_build_number`: GitHub run number
@@ -368,20 +353,20 @@ This provides excellent traceability without any manual setup.
 
 ## Action Outputs
 
-Both actions provide comprehensive outputs for integration with other workflow
-steps:
+The actions provide outputs for later workflow steps. `run-workflow` outputs are
+listed in its [README](./run-workflow/README.md#outputs).
 
 ### Upload Build Outputs
 
-| Output          | Description                          | Example Usage                               |
-| --------------- | ------------------------------------ | ------------------------------------------- |
-| `success`       | Whether upload was successful        | `${{ steps.upload.outputs.success }}`       |
-| `build-id`      | **ID of the created build**          | `${{ steps.upload.outputs.build-id }}`      |
-| `version-id`    | Deprecated alias for `build-id`      | `${{ steps.upload.outputs.version-id }}`    |
-| `version`       | Version string of the uploaded build | `${{ steps.upload.outputs.version }}`       |
-| `package-id`    | Extracted package ID from the build  | `${{ steps.upload.outputs.package-id }}`    |
-| `upload-time`   | Time taken for upload in seconds     | `${{ steps.upload.outputs.upload-time }}`   |
-| `error-message` | Error message if upload failed       | `${{ steps.upload.outputs.error-message }}` |
+| Output          | Description                         | Example Usage                               |
+| --------------- | ----------------------------------- | ------------------------------------------- |
+| `success`       | Whether upload was successful       | `${{ steps.upload.outputs.success }}`       |
+| `build-id`      | **ID of the created build**         | `${{ steps.upload.outputs.build-id }}`      |
+| `version-id`    | Deprecated alias for `build-id`     | `${{ steps.upload.outputs.version-id }}`    |
+| `version`       | Version label of the uploaded build | `${{ steps.upload.outputs.version }}`       |
+| `package-id`    | Extracted package ID from the build | `${{ steps.upload.outputs.package-id }}`    |
+| `upload-time`   | Time taken for upload in seconds    | `${{ steps.upload.outputs.upload-time }}`   |
+| `error-message` | Error message if upload failed      | `${{ steps.upload.outputs.error-message }}` |
 
 ### Run Test Outputs
 
@@ -441,10 +426,12 @@ steps:
 
 For comprehensive documentation including framework-specific build guides:
 
-- **[Complete Documentation](https://docs.revyl.ai/ci-recipes/github-actions)**
-- **[Mobile Build Guides](https://docs.revyl.ai/platform/mobileguides)** - React
+- **[Run tests in CI/CD](https://docs.revyl.com/guides/run-tests-ci-cd)**
+- **[Build branches](https://docs.revyl.com/builds/branches)**
+- **[Framework build guides](https://docs.revyl.com/builds/frameworks)** - React
   Native, Expo, Flutter, etc.
 - [Run Test Action README](./run-test/README.md)
+- [Run Workflow Action README](./run-workflow/README.md)
 - [Upload Build Action README](./upload-build/README.md)
 
 ## Development
@@ -469,7 +456,7 @@ Works with any mobile framework that can produce APK/ZIP/.app files:
 - Cordova/PhoneGap
 - Ionic
 
-See our [mobile build guides](https://docs.revyl.ai/platform/mobileguides) for
+See our [framework build guides](https://docs.revyl.com/builds/frameworks) for
 framework-specific setup instructions.
 
 ## Why Choose Revyl Actions?

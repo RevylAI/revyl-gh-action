@@ -31537,21 +31537,11 @@ module.exports = {
 
 /***/ }),
 
-/***/ 7936:
+/***/ 6474:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(7484)
-const httm = __nccwpck_require__(4844)
 const fs = __nccwpck_require__(9896)
-const path = __nccwpck_require__(6928)
-
-function splitRepository(repository) {
-  if (!repository || !repository.includes('/')) {
-    return { namespace: null, project: null }
-  }
-  const [namespace, ...rest] = repository.split('/')
-  return { namespace, project: rest.join('/') || null }
-}
 
 function readGithubEventPayload() {
   if (!process.env.GITHUB_EVENT_PATH) {
@@ -31559,10 +31549,99 @@ function readGithubEventPayload() {
   }
   try {
     return JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
-  } catch (e) {
-    core.info('Could not read GitHub event payload for SCM metadata')
+  } catch {
+    core.info('Could not read GitHub event payload for branch and SCM metadata')
     return null
   }
+}
+
+function repositoryFullName(value) {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const fullName = value.trim()
+  return /^[^/\s]+\/[^/\s]+$/.test(fullName) ? fullName : null
+}
+
+function validatedGitBranch(branch) {
+  if (
+    Array.from(branch).length > 255 ||
+    /(^\p{White_Space}|\p{White_Space}$|\p{Cc}|\p{Cs})/u.test(branch)
+  ) {
+    throw new Error(
+      'Detected Git branch is not a valid Revyl branch; set the branch input explicitly'
+    )
+  }
+  return branch
+}
+
+function detectGithubBranch(eventData) {
+  if (process.env.GITHUB_ACTIONS !== 'true') {
+    return null
+  }
+  const repository = repositoryFullName(process.env.GITHUB_REPOSITORY)
+  if (!repository) {
+    return null
+  }
+
+  const pullRequest = eventData?.pull_request
+  const head = pullRequest?.head
+  if (
+    typeof head?.ref === 'string' &&
+    head.ref &&
+    typeof head.sha === 'string' &&
+    head.sha
+  ) {
+    const baseRepository = repositoryFullName(pullRequest.base?.repo?.full_name)
+    const headRepository = repositoryFullName(head.repo?.full_name)
+    if (
+      baseRepository?.toLowerCase() !== repository.toLowerCase() ||
+      !headRepository
+    ) {
+      return null
+    }
+    const isFork = headRepository.toLowerCase() !== repository.toLowerCase()
+    const branch = isFork
+      ? `${headRepository.split('/')[0]}:${head.ref}`
+      : head.ref
+    return validatedGitBranch(branch)
+  }
+
+  const ref = process.env.GITHUB_REF || ''
+  // An unusable PR event must never turn pull_request_target's base ref into a destination.
+  if (
+    pullRequest ||
+    process.env.GITHUB_EVENT_NAME?.startsWith('pull_request') ||
+    process.env.GITHUB_HEAD_REF ||
+    process.env.GITHUB_REF_TYPE === 'tag' ||
+    !ref.startsWith('refs/heads/')
+  ) {
+    return null
+  }
+  const branch = ref.slice('refs/heads/'.length)
+  return branch ? validatedGitBranch(branch) : null
+}
+
+module.exports = { readGithubEventPayload, detectGithubBranch }
+
+
+/***/ }),
+
+/***/ 7936:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(7484)
+const httm = __nccwpck_require__(4844)
+const fs = __nccwpck_require__(9896)
+const path = __nccwpck_require__(6928)
+const { readGithubEventPayload, detectGithubBranch } = __nccwpck_require__(6474)
+
+function splitRepository(repository) {
+  if (!repository || !repository.includes('/')) {
+    return { namespace: null, project: null }
+  }
+  const [namespace, ...rest] = repository.split('/')
+  return { namespace, project: rest.join('/') || null }
 }
 
 function inferPlatformFromFilePath(filePath) {
@@ -31582,13 +31661,15 @@ function inferPlatformFromFilePath(filePath) {
   return null
 }
 
-function collectGithubActionsMetadata(filePath) {
+function collectGithubActionsMetadata(
+  filePath,
+  eventData = readGithubEventPayload()
+) {
   const autoMetadata = {}
   if (process.env.GITHUB_ACTIONS !== 'true') {
     return autoMetadata
   }
 
-  const eventData = readGithubEventPayload()
   const repository =
     eventData?.repository?.full_name || process.env.GITHUB_REPOSITORY
   const { namespace, project } = splitRepository(repository)
@@ -31732,6 +31813,13 @@ async function run() {
 
     const version = core.getInput('version', { required: true })
     const branch = core.getInput('branch', { required: false })
+    const githubEvent = readGithubEventPayload()
+    const gitBranch = branch ? null : detectGithubBranch(githubEvent)
+    const destination = branch
+      ? { branch_name: branch }
+      : gitBranch
+        ? { git_branch_name: gitBranch }
+        : {}
     const filePath = core.getInput('file-path', { required: false })
     const expoUrl = core.getInput('expo-url', { required: false })
     const expoHeaders = core.getInput('expo-headers', { required: false })
@@ -31742,8 +31830,11 @@ async function run() {
       10
     )
 
-    // Hardcode the correct backend URL - users shouldn't need to know this
-    const backendUrl = 'https://backend.revyl.ai'
+    const backendUrl = (
+      core.getInput('backend-url', { required: false }) ||
+      process.env.REVYL_BACKEND_URL ||
+      'https://backend.revyl.ai'
+    ).replace(/\/+$/, '')
 
     // Validate inputs
     if (!filePath && !expoUrl) {
@@ -31766,7 +31857,7 @@ async function run() {
     }
 
     // Automatically inject GitHub Actions CI/CD + SCM metadata.
-    const autoMetadata = collectGithubActionsMetadata(filePath)
+    const autoMetadata = collectGithubActionsMetadata(filePath, githubEvent)
 
     // Merge auto metadata with user metadata (user metadata takes precedence)
     const finalMetadata = { ...autoMetadata, ...parsedMetadata }
@@ -31792,8 +31883,14 @@ async function run() {
       }
     }
 
-    if (branch) {
-      core.info(`Uploading to Revyl branch: ${branch}`)
+    if (branch || gitBranch) {
+      core.info(
+        `Uploading to Revyl branch: ${branch || gitBranch} (${branch ? 'branch input' : 'Git branch'})`
+      )
+    } else {
+      core.info(
+        "Uploading to the app's default branch: this run has no Git branch, such as a tag build"
+      )
     }
 
     const client = new httm.HttpClient('revyl-upload-build-action', [], {
@@ -31808,7 +31905,7 @@ async function run() {
     let packageId = null
     let artifactUrl = null
     let uploadBranchId = null
-    let uploadBranchName = branch || null
+    let uploadBranchName = branch || gitBranch || null
 
     if (expoUrl) {
       // Handle Expo URL upload using the from-url endpoint
@@ -31819,10 +31916,8 @@ async function run() {
         version: version,
         from_url: expoUrl,
         headers: parsedExpoHeaders,
-        metadata: finalMetadata
-      }
-      if (branch) {
-        fromUrlBody.branch_name = branch
+        metadata: finalMetadata,
+        ...destination
       }
 
       core.info(`Making request to: ${backendUrl}${fromUrlEndpoint}`)
@@ -31890,11 +31985,9 @@ async function run() {
       const uploadUrlEndpoint = `/api/v1/apps/${resolvedAppId}/builds/upload-url`
       const uploadUrlParams = new URLSearchParams({
         version: version,
-        file_name: fileName
+        file_name: fileName,
+        ...destination
       })
-      if (branch) {
-        uploadUrlParams.set('branch_name', branch)
-      }
 
       core.info(
         `Getting upload URL from: ${backendUrl}${uploadUrlEndpoint}?${uploadUrlParams}`
