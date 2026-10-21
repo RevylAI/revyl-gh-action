@@ -87,22 +87,20 @@ test.each([
 })
 
 test.each([' bad', 'bad ', 'bad\nname', 'bad\u007fname', 'a'.repeat(256)])(
-  'rejects an invalid detected name %j',
+  'passes detected context %j to the server for app policy evaluation',
   branch => {
     process.env.GITHUB_REF = `refs/heads/${branch}`
-    expect(() => detectGithubBranch(null)).toThrow(
-      'Detected Git branch is not a valid Revyl branch; set the branch input explicitly'
-    )
+    expect(detectGithubBranch(null)).toBe(branch)
   }
 )
 
-test('counts Unicode codepoints and validates the complete fork name', () => {
+test('preserves a complete fork name for server policy evaluation', () => {
   const branch = '🦆'.repeat(255)
   process.env.GITHUB_REF = `refs/heads/${branch}`
   expect(detectGithubBranch(null)).toBe(branch)
-  expect(() =>
-    detectGithubBranch(pullRequest('contributor/mobile', branch))
-  ).toThrow('Detected Git branch is not a valid Revyl branch')
+  expect(detectGithubBranch(pullRequest('contributor/mobile', branch))).toBe(
+    `contributor:${branch}`
+  )
 })
 
 test('reads the event file without a checkout', () => {

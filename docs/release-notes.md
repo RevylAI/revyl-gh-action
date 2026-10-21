@@ -4,19 +4,22 @@
 
 ### Changes
 
-- Without `branch`, `upload-build` uploads to the run's Git branch: the pull
-  request's source branch (`owner:branch` for forks) or the branch the run is
-  on, even without a checkout, and creates it if needed. Tag runs, and jobs with
-  no branch to read, still upload to the app's default branch. A detected name
-  that can't be a Revyl branch fails before upload. Uploads don't pin the
-  branch.
-- Every branch you upload from becomes a Revyl branch, and branches can't be
-  deleted. Merge queue runs (`gh-readonly-queue/...`, one per entry) and bot
-  branches create one each; set `branch` in those workflows.
+- Without `branch`, `upload-build` respects each app's Automatic Git branch
+  detection setting on its Build branches page. Off uploads to the app default.
+  On (the initial setting) uploads to the run's Git branch: the pull request's
+  source branch (`owner:branch` for forks) or the branch the run is on, even
+  without a checkout, and creates it if needed. Tag runs, and jobs with no
+  branch to read, still upload to the app's default branch. A detected name that
+  can't be a Revyl branch fails before upload. Uploads don't pin the branch.
+- With automatic detection on, every branch you upload from becomes a Revyl
+  branch, and branches can't be deleted. Merge queue runs
+  (`gh-readonly-queue/...`, one per entry) and bot branches create one each; set
+  `branch` in those workflows.
 - With CLI 0.1.177 or later, tests saved on Default branch run on the job's Git
   branch in `run-test` and `run-workflow` when it has a usable build, otherwise
-  on the app's default branch. Older CLIs use the app's default branch. Saved
-  branches, exact builds, `branch` and `all-branches` aren't affected.
+  on the app's default branch. Turning automatic detection off always uses the
+  app default for inferred Git context. Older CLIs use the app's default branch.
+  Saved branches, exact builds, `branch` and `all-branches` aren't affected.
 - Tests and workflow app overrides created in the dashboard start on All
   branches · Latest build, so a pull request job can run another pull request's
   upload. To test a pull request's own build, pass the upload's `build-id` to
@@ -30,7 +33,8 @@
   and dashboard and scheduled runs saved on Default branch use the default
   branch, so they stop picking up new CI builds. Make `main` the default branch
   (`revyl app branch default main --app <app>`), or set `branch: base` (your
-  default branch's name, if you changed it) to keep the old destination.
+  default branch's name, if you changed it), or turn off Automatic Git branch
+  detection on the app's Build branches page to keep the default destination.
 - Workflows on `@v2` or `@main` get this change without edits. Pin `@v2.2.1`, or
   set `branch`, to keep the old destination.
 - Runs follow the Git branch through the CLI, not the Action, so with the

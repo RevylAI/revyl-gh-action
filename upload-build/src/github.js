@@ -21,18 +21,6 @@ function repositoryFullName(value) {
   return /^[^/\s]+\/[^/\s]+$/.test(fullName) ? fullName : null
 }
 
-function validatedGitBranch(branch) {
-  if (
-    Array.from(branch).length > 255 ||
-    /(^\p{White_Space}|\p{White_Space}$|\p{Cc}|\p{Cs})/u.test(branch)
-  ) {
-    throw new Error(
-      'Detected Git branch is not a valid Revyl branch; set the branch input explicitly'
-    )
-  }
-  return branch
-}
-
 function detectGithubBranch(eventData) {
   if (process.env.GITHUB_ACTIONS !== 'true') {
     return null
@@ -62,7 +50,7 @@ function detectGithubBranch(eventData) {
     const branch = isFork
       ? `${headRepository.split('/')[0]}:${head.ref}`
       : head.ref
-    return validatedGitBranch(branch)
+    return branch
   }
 
   const ref = process.env.GITHUB_REF || ''
@@ -77,7 +65,7 @@ function detectGithubBranch(eventData) {
     return null
   }
   const branch = ref.slice('refs/heads/'.length)
-  return branch ? validatedGitBranch(branch) : null
+  return branch || null
 }
 
 module.exports = { readGithubEventPayload, detectGithubBranch }

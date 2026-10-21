@@ -19,8 +19,8 @@ inputs:
   branch:
     description:
       "Revyl branch to upload to, created if missing. Omit to use the run's Git
-      branch, such as the pull request's source branch; tag runs use the app's
-      default branch."
+      branch when the app has automatic Git branch detection enabled; otherwise
+      use the app's default branch. Tag runs use the app's default branch."
     required: false
   file-path:
     description:

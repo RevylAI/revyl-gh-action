@@ -31563,18 +31563,6 @@ function repositoryFullName(value) {
   return /^[^/\s]+\/[^/\s]+$/.test(fullName) ? fullName : null
 }
 
-function validatedGitBranch(branch) {
-  if (
-    Array.from(branch).length > 255 ||
-    /(^\p{White_Space}|\p{White_Space}$|\p{Cc}|\p{Cs})/u.test(branch)
-  ) {
-    throw new Error(
-      'Detected Git branch is not a valid Revyl branch; set the branch input explicitly'
-    )
-  }
-  return branch
-}
-
 function detectGithubBranch(eventData) {
   if (process.env.GITHUB_ACTIONS !== 'true') {
     return null
@@ -31604,7 +31592,7 @@ function detectGithubBranch(eventData) {
     const branch = isFork
       ? `${headRepository.split('/')[0]}:${head.ref}`
       : head.ref
-    return validatedGitBranch(branch)
+    return branch
   }
 
   const ref = process.env.GITHUB_REF || ''
@@ -31619,7 +31607,7 @@ function detectGithubBranch(eventData) {
     return null
   }
   const branch = ref.slice('refs/heads/'.length)
-  return branch ? validatedGitBranch(branch) : null
+  return branch || null
 }
 
 module.exports = { readGithubEventPayload, detectGithubBranch }
@@ -31778,7 +31766,7 @@ async function logUploadedBuildBranch(client, backendUrl, appId, upload) {
       core.info(`   Branch: ${upload.branchName}`)
     }
     core.warning(
-      `Couldn't check which build runs on ${upload.branchName || 'the app default branch'}: ${apiErrorMessage(error)}`
+      `Couldn't check which build runs on ${upload.branchName || (upload.branchId ? "the uploaded build's branch" : 'the app default branch')}: ${apiErrorMessage(error)}`
     )
   }
 }
@@ -31883,9 +31871,11 @@ async function run() {
       }
     }
 
-    if (branch || gitBranch) {
+    if (branch) {
+      core.info(`Uploading to Revyl branch: ${branch} (branch input)`)
+    } else if (gitBranch) {
       core.info(
-        `Uploading to Revyl branch: ${branch || gitBranch} (${branch ? 'branch input' : 'Git branch'})`
+        `Detected Git branch: ${gitBranch}; the app's automatic Git branch setting determines the upload branch`
       )
     } else {
       core.info(
@@ -31905,7 +31895,7 @@ async function run() {
     let packageId = null
     let artifactUrl = null
     let uploadBranchId = null
-    let uploadBranchName = branch || gitBranch || null
+    let uploadBranchName = branch || null
 
     if (expoUrl) {
       // Handle Expo URL upload using the from-url endpoint
@@ -32018,6 +32008,7 @@ async function run() {
 
       versionId = uploadUrlRes.result.version_id
       uploadBranchId = uploadUrlRes.result.branch_id || null
+      uploadBranchName = uploadUrlRes.result.branch_name || uploadBranchName
       const uploadUrl = uploadUrlRes.result.upload_url
       const contentType = uploadUrlRes.result.content_type
 

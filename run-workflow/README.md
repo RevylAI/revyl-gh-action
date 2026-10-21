@@ -44,8 +44,11 @@ it for long-lived branches like `main` or `staging`.
 
 Without `branch`, the workflow uses its saved choices; saved branches and exact
 builds stay fixed. Tests saved on Default branch run on the job's Git branch (in
-a pull request, its source branch, `owner:branch` for a fork), and each app
-without a usable build there uses its own default branch.
+a pull request, its source branch, `owner:branch` for a fork) when automatic Git
+branch detection is on for that app. Each app with detection off, or without a
+usable build there, uses its own default branch. Change detection on each app's
+Build branches page; mixed-app workflows respect each app's setting. Explicit
+branches, exact builds, and All branches selections remain authoritative.
 
 Tests and workflow app overrides created in the dashboard start on All branches
 · Latest build, so a pull request job can run another pull request's upload. To

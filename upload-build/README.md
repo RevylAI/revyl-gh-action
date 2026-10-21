@@ -56,8 +56,11 @@ file uploads and Expo URL ingestion.
 ```
 
 `branch` names the Revyl branch the build goes to; Revyl creates it if it
-doesn't exist. Without `branch`, the upload goes to the run's Git branch, read
-from GitHub's event data, so it needs no checkout:
+doesn't exist. Explicit `branch` always takes precedence over the app setting.
+Without `branch`, the upload uses the app's **Automatic Git branch detection**
+setting on its Build branches page. When off, it uses the app's default branch.
+When on (the initial setting), it uses the run's Git branch, read from GitHub's
+event data, so it needs no checkout:
 
 - On a pull request run, the pull request's source branch, never its target. A
   fork's branch is named `owner:branch`.
@@ -65,11 +68,12 @@ from GitHub's event data, so it needs no checkout:
   queue), that branch.
 - On a tag run, the app's default branch.
 
-Branches can't be deleted. A detected name that can't be a Revyl branch fails
-the step; set `branch`. Merge queue runs are on branches named
-`gh-readonly-queue/...`, one per entry, so each becomes a Revyl branch, and so
-does every bot branch (Dependabot, Renovate) that runs an upload; set `branch`
-in those workflows. Uploads don't pin the branch. See
+Branches can't be deleted. With automatic detection on, a detected name that
+can't be a Revyl branch fails the step; set `branch` or turn off detection.
+Merge queue runs are on branches named `gh-readonly-queue/...`, one per entry,
+so each becomes a Revyl branch, and so does every bot branch (Dependabot,
+Renovate) that runs an upload with detection on; set `branch` in those workflows
+or turn off detection for the app. Uploads don't pin the branch. See
 [Build branches](https://docs.revyl.com/builds/branches) and
 [Choose where CI uploads go](https://docs.revyl.com/builds/ci-builds#choose-where-ci-uploads-go).
 
@@ -79,19 +83,19 @@ runs, otherwise the branch or tag the run is on.
 
 ## Inputs
 
-| Input          | Description                                              | Required | Default                          |
-| -------------- | -------------------------------------------------------- | -------- | -------------------------------- |
-| `app-id`       | The Revyl app ID to upload the build to                  | Yes      |                                  |
-| `build-var-id` | Deprecated alias for `app-id`                            | No       |                                  |
-| `version`      | Version label for this build, unique within the app      | Yes      |                                  |
-| `branch`       | Revyl branch to upload to; created if it does not exist  | No       | The run's Git branch (see above) |
-| `file-path`    | Path to the build artifact file                          | No\*     |                                  |
-| `expo-url`     | Expo build URL to download and upload                    | No\*     |                                  |
-| `expo-headers` | JSON string of headers for Expo URL download             | No       |                                  |
-| `metadata`     | JSON string of additional metadata                       | No       |                                  |
-| `package-name` | Package name/identifier (auto-extracted if not provided) | No       |                                  |
-| `backend-url`  | Override backend base URL                                | No       | `https://backend.revyl.ai`       |
-| `timeout`      | Timeout in seconds for upload operation                  | No       | `1800`                           |
+| Input          | Description                                              | Required | Default                    |
+| -------------- | -------------------------------------------------------- | -------- | -------------------------- |
+| `app-id`       | The Revyl app ID to upload the build to                  | Yes      |                            |
+| `build-var-id` | Deprecated alias for `app-id`                            | No       |                            |
+| `version`      | Version label for this build, unique within the app      | Yes      |                            |
+| `branch`       | Revyl branch to upload to; created if it does not exist  | No       | App setting (see above)    |
+| `file-path`    | Path to the build artifact file                          | No\*     |                            |
+| `expo-url`     | Expo build URL to download and upload                    | No\*     |                            |
+| `expo-headers` | JSON string of headers for Expo URL download             | No       |                            |
+| `metadata`     | JSON string of additional metadata                       | No       |                            |
+| `package-name` | Package name/identifier (auto-extracted if not provided) | No       |                            |
+| `backend-url`  | Override backend base URL                                | No       | `https://backend.revyl.ai` |
+| `timeout`      | Timeout in seconds for upload operation                  | No       | `1800`                     |
 
 \*Either `file-path` or `expo-url` must be provided (mutually exclusive).
 
@@ -213,7 +217,8 @@ The action will fail if:
 - Neither `file-path` nor `expo-url` is provided
 - Both `file-path` and `expo-url` are provided
 - The specified file doesn't exist (for file uploads)
-- `branch` is omitted and the detected Git branch name can't be a Revyl branch
+- `branch` is omitted, automatic Git branch detection is on, and the detected
+  Git branch name can't be a Revyl branch
 - The API returns an error (invalid app ID, duplicate version, etc.)
 - Network issues during upload
 

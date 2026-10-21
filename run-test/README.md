@@ -82,8 +82,10 @@ long-lived branches like `main` or `staging`.
 Without `branch`, the run uses the test's or workflow's saved choice; saved
 branches and exact builds stay fixed. A test saved on Default branch runs on the
 job's Git branch (in a pull request, its source branch, `owner:branch` for a
-fork) when that branch has a usable build, otherwise on the app's default
-branch.
+fork) when automatic Git branch detection is on for the app and that branch has
+a usable build. Otherwise it runs on the app's default branch. Change the
+setting on the app's Build branches page. Explicit branches, exact builds, and
+All branches selections remain authoritative in either toggle state.
 
 Tests created in the dashboard start on All branches · Latest build, so a pull
 request job can run another pull request's upload. To test the pull request's

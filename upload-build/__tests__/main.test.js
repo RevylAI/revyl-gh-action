@@ -541,7 +541,7 @@ describe('Upload Build Action', () => {
       )
     })
 
-    test('names the detected GitHub branch when the check fails', async () => {
+    test('does not claim the detected GitHub branch when the check fails', async () => {
       process.env.GITHUB_ACTIONS = 'true'
       process.env.GITHUB_REPOSITORY = 'acme/mobile-app'
       process.env.GITHUB_REF = 'refs/heads/feature/login'
@@ -564,9 +564,41 @@ describe('Upload Build Action', () => {
       expect(mockPostJson.mock.calls[0][0]).toContain(
         'git_branch_name=feature%2Flogin'
       )
-      expect(core.info).toHaveBeenCalledWith('   Branch: feature/login')
+      expect(core.info).not.toHaveBeenCalledWith('   Branch: feature/login')
       expect(core.warning).toHaveBeenCalledWith(
-        "Couldn't check which build runs on feature/login: Branch resolution failed"
+        "Couldn't check which build runs on the uploaded build's branch: Branch resolution failed"
+      )
+    })
+
+    test('logs the server destination instead of the detected Git branch', async () => {
+      process.env.GITHUB_ACTIONS = 'true'
+      process.env.GITHUB_REPOSITORY = 'acme/mobile-app'
+      process.env.GITHUB_REF = 'refs/heads/feature/login'
+      mockFileUpload()
+      core.getInput.mockImplementation(
+        name =>
+          ({
+            'app-id': 'test-app-id',
+            version: '1.0.0',
+            'file-path': '/path/to/file.apk'
+          })[name] || ''
+      )
+      mockRunBuild('version-123', '1.0.0')
+
+      await run()
+
+      expect(mockPostJson).toHaveBeenLastCalledWith(resolveEndpoint, {
+        build_var_id: 'test-app-id',
+        branch_id: 'branch-1'
+      })
+      expect(core.info).toHaveBeenCalledWith(
+        "Detected Git branch: feature/login; the app's automatic Git branch setting determines the upload branch"
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        '   Branch: staging (Latest build: runs use this upload)'
+      )
+      expect(core.info).not.toHaveBeenCalledWith(
+        'Uploading to Revyl branch: feature/login (Git branch)'
       )
     })
 

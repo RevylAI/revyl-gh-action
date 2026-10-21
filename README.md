@@ -118,8 +118,9 @@ is accepted as a deprecated alias.
 `branch` runs on that Revyl branch's default build (its pin, or its Latest
 build); a `build-id` given with it must belong to it. Without `branch`, the
 test's saved choice applies; a test saved on Default branch runs on the job's
-Git branch when it has a usable build. `all-branches: 'true'` runs on the newest
-build across all branches. See the
+Git branch when automatic Git branch detection is on for the app and it has a
+usable build; with detection off, it uses the app's default branch.
+`all-branches: 'true'` runs on the newest build across all branches. See the
 [run-test README](./run-test/README.md#run-on-a-branch) for the full rules.
 
 ### Run Workflow Action (`run-workflow`)
@@ -155,22 +156,24 @@ injection and multi-source support.
 
 **Input Parameters:**
 
-| Parameter      | Required | Description                                               | Example                               |
-| -------------- | -------- | --------------------------------------------------------- | ------------------------------------- |
-| `app-id`       | Yes      | The Revyl app ID to upload to                             | `abc-123-def`                         |
-| `build-var-id` | No       | Deprecated alias for `app-id`                             | `abc-123-def`                         |
-| `version`      | Yes      | Version label for this build, unique within the app       | `1.0.0` or `${{ github.sha }}`        |
-| `branch`       | No       | Revyl branch to upload to (default: the run's Git branch) | `staging`                             |
-| `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                     | `./dist/app.apk`                      |
-| `expo-url`     | No\*     | Expo build URL to download from                           | `https://expo.dev/artifacts/...`      |
-| `expo-headers` | No       | JSON headers for Expo URL download                        | `'{"Authorization": "Bearer token"}'` |
-| `package-name` | No       | Package name/identifier (auto-extracted if not provided)  | `com.example.app`                     |
-| `backend-url`  | No       | Revyl backend base URL                                    | `https://backend.revyl.ai`            |
-| `timeout`      | No       | Upload timeout in seconds                                 | `1800` (30 min)                       |
+| Parameter      | Required | Description                                                  | Example                               |
+| -------------- | -------- | ------------------------------------------------------------ | ------------------------------------- |
+| `app-id`       | Yes      | The Revyl app ID to upload to                                | `abc-123-def`                         |
+| `build-var-id` | No       | Deprecated alias for `app-id`                                | `abc-123-def`                         |
+| `version`      | Yes      | Version label for this build, unique within the app          | `1.0.0` or `${{ github.sha }}`        |
+| `branch`       | No       | Revyl branch to upload to (default: app's detection setting) | `staging`                             |
+| `file-path`    | No\*     | Path to the build file (APK/ZIP/.app)                        | `./dist/app.apk`                      |
+| `expo-url`     | No\*     | Expo build URL to download from                              | `https://expo.dev/artifacts/...`      |
+| `expo-headers` | No       | JSON headers for Expo URL download                           | `'{"Authorization": "Bearer token"}'` |
+| `package-name` | No       | Package name/identifier (auto-extracted if not provided)     | `com.example.app`                     |
+| `backend-url`  | No       | Revyl backend base URL                                       | `https://backend.revyl.ai`            |
+| `timeout`      | No       | Upload timeout in seconds                                    | `1800` (30 min)                       |
 
 \* Either `file-path` or `expo-url` must be provided (but not both)
 
-Without `branch`, the upload goes to the run's Git branch. See the
+Without `branch`, the upload follows the app's Automatic Git branch detection
+setting on its Build branches page: on uses the run's Git branch; off uses the
+app's default branch. Explicit `branch` always takes precedence. See the
 [upload-build README](./upload-build/README.md#upload-to-a-branch).
 
 ### Environment Variables
@@ -244,7 +247,7 @@ jobs:
       # Your build steps here (React Native, Expo, Flutter, etc.)
       # See complete examples: ./examples/
 
-      # Lands on the run's Git branch: the pull request's source branch, or
+      # With automatic Git branch detection on, lands on the source branch, or
       # main on a push. build-id below runs this exact build either way.
       - name: Upload Build to Revyl
         id: upload-build

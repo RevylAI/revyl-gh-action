@@ -86,8 +86,8 @@ jobs:
           echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
 
       # Step 6: Upload your build to Revyl (the main event!)
-      # Lands on the Revyl branch named after the Git branch (main here);
-      # set `branch` to choose another.
+      # With automatic Git branch detection on, uses the Git branch (main here).
+      # With detection off, uses the app default. Set `branch` to override.
       - name: ⬆️ Upload Build to Revyl
         uses: RevylAI/revyl-gh-action/upload-build@main
         with:

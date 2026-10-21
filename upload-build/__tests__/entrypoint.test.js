@@ -180,14 +180,17 @@ describe.each(['binary', 'expo'])('%s entrypoint', source => {
     }
   })
 
-  test('invalid known context fails without making a request', () => {
+  test('leaves detected-name validation to the server app policy', () => {
     const result = invokeAction(source, {
       env: { GITHUB_REF: 'refs/heads/ invalid' }
     })
-    expect(result.status).toBe(1)
-    expect(result.requests).toEqual([])
-    expect(result.stdout).toContain('set the branch input explicitly')
-    expect(result.outputs).toMatch(/success<<[^\n]+\nfalse\n/)
+    expect(result.status).toBe(0)
+    const firstRequest = result.requests[0]
+    const destination =
+      source === 'binary'
+        ? Object.fromEntries(new URL(firstRequest.url).searchParams)
+        : firstRequest.body
+    expect(destination.git_branch_name).toBe(' invalid')
   })
 
   test('destination rejection fails without a default-branch retry', () => {
