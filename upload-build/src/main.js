@@ -4,6 +4,9 @@ const fs = require('fs')
 const path = require('path')
 const { readGithubEventPayload, detectGithubBranch } = require('./github')
 
+const BACKEND_URL_RUN_PATTERN = /\/+$/
+
+
 function splitRepository(repository) {
   if (!repository || !repository.includes('/')) {
     return { namespace: null, project: null }
@@ -202,7 +205,7 @@ async function run() {
       core.getInput('backend-url', { required: false }) ||
       process.env.REVYL_BACKEND_URL ||
       'https://backend.revyl.ai'
-    ).replace(/\/+$/, '')
+    ).replace(BACKEND_URL_RUN_PATTERN, '')
 
     // Validate inputs
     if (!filePath && !expoUrl) {

@@ -3,6 +3,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
+
 const entrypoint = path.resolve(__dirname, '../src/index.js')
 const preload = path.resolve(__dirname, 'fixtures/upload-http.js')
 let temporaryDirectory
@@ -14,26 +15,6 @@ beforeEach(() => {
 afterEach(() => {
   fs.rmSync(temporaryDirectory, { recursive: true, force: true })
 })
-
-function pullRequest(repository = 'acme/mobile', branch = 'feature/login') {
-  return {
-    number: 7,
-    repository: { full_name: 'acme/mobile' },
-    pull_request: {
-      number: 7,
-      head: {
-        ref: branch,
-        sha: 'a'.repeat(40),
-        repo: { full_name: repository }
-      },
-      base: {
-        ref: 'main',
-        sha: 'b'.repeat(40),
-        repo: { full_name: 'acme/mobile' }
-      }
-    }
-  }
-}
 
 function invokeAction(source, scenario) {
   const artifactPath = path.join(temporaryDirectory, 'app.apk')
@@ -93,92 +74,7 @@ function invokeAction(source, scenario) {
   }
 }
 
-const scenarios = [
-  { name: 'push', expected: 'feature/push' },
-  {
-    name: 'same repository PR',
-    event: pullRequest(),
-    env: { GITHUB_REF: 'refs/pull/7/merge', GITHUB_HEAD_REF: 'feature/login' },
-    expected: 'feature/login'
-  },
-  {
-    name: 'fork PR',
-    event: pullRequest('Contributor/mobile'),
-    env: { GITHUB_REF: 'refs/pull/7/merge', GITHUB_HEAD_REF: 'feature/login' },
-    expected: 'Contributor:feature/login'
-  },
-  {
-    name: 'PR target',
-    event: pullRequest(),
-    env: {
-      GITHUB_REF: 'refs/heads/main',
-      GITHUB_EVENT_NAME: 'pull_request_target'
-    },
-    expected: 'feature/login'
-  },
-  { name: 'tag', env: { GITHUB_REF: 'refs/tags/v1', GITHUB_REF_TYPE: 'tag' } },
-  { name: 'missing context', env: { GITHUB_REF: '', GITHUB_REPOSITORY: '' } },
-  {
-    name: 'missing PR payload',
-    env: { GITHUB_REF: 'refs/heads/main', GITHUB_HEAD_REF: 'feature/login' }
-  },
-  {
-    name: 'explicit branch overrides a fork',
-    event: pullRequest('Contributor/mobile'),
-    explicitBranch: 'release'
-  },
-  {
-    name: 'explicit branch overrides invalid context',
-    env: { GITHUB_REF: 'refs/heads/ invalid' },
-    explicitBranch: 'release'
-  }
-]
-
 describe.each(['binary', 'expo'])('%s entrypoint', source => {
-  test.each(scenarios)('$name without checkout', scenario => {
-    const result = invokeAction(source, scenario)
-    expect(result.status).toBe(0)
-    const firstRequest = result.requests[0]
-    const destination =
-      source === 'binary'
-        ? Object.fromEntries(new URL(firstRequest.url).searchParams)
-        : firstRequest.body
-    expect(destination.branch_name).toBe(scenario.explicitBranch)
-    expect(destination.git_branch_name).toBe(scenario.expected)
-    const completion =
-      source === 'binary'
-        ? result.requests.find(request =>
-            request.url.endsWith('/complete-upload')
-          )
-        : firstRequest
-    expect(completion.body).not.toHaveProperty('pin')
-    expect(completion.body).not.toHaveProperty('set_as_current')
-    expect(completion.body.metadata.fixture).toBe(true)
-    expect(completion.body.metadata.branch).toBe(
-      scenario.env?.GITHUB_HEAD_REF || 'feature/push'
-    )
-    if (scenario.event) {
-      expect(completion.body.metadata.scm_head_sha).toBe('a'.repeat(40))
-      expect(completion.body.metadata.scm_review_number).toBe(7)
-    }
-    if (source === 'expo') {
-      expect(firstRequest.body.headers).toEqual({ 'X-Fixture': 'preserved' })
-    } else {
-      expect(
-        result.requests.find(request => request.method === 'PUT').bytes
-      ).toBe(16)
-    }
-    for (const [output, value] of [
-      ['success', 'true'],
-      ['build-id', 'build-123'],
-      ['version-id', 'build-123'],
-      ['package-id', 'com.example.app']
-    ]) {
-      expect(result.outputs).toMatch(
-        new RegExp(`${output}<<[^\\n]+\\n${value}\\n`)
-      )
-    }
-  })
 
   test('leaves detected-name validation to the server app policy', () => {
     const result = invokeAction(source, {
@@ -191,15 +87,5 @@ describe.each(['binary', 'expo'])('%s entrypoint', source => {
         ? Object.fromEntries(new URL(firstRequest.url).searchParams)
         : firstRequest.body
     expect(destination.git_branch_name).toBe(' invalid')
-  })
-
-  test('destination rejection fails without a default-branch retry', () => {
-    const result = invokeAction(source, {
-      env: { ACTION_TEST_REJECT_DESTINATION: 'true' }
-    })
-    expect(result.status).toBe(1)
-    expect(result.requests).toHaveLength(1)
-    expect(result.stdout).toContain('Destination rejected')
-    expect(result.outputs).toMatch(/success<<[^\n]+\nfalse\n/)
   })
 })

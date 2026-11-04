@@ -31543,6 +31543,9 @@ module.exports = {
 const core = __nccwpck_require__(7484)
 const fs = __nccwpck_require__(9896)
 
+const REPOSITORY_FULL_NAME_PATTERN = /^[^/\s]+\/[^/\s]+$/
+
+
 function readGithubEventPayload() {
   if (!process.env.GITHUB_EVENT_PATH) {
     return null
@@ -31560,7 +31563,7 @@ function repositoryFullName(value) {
     return null
   }
   const fullName = value.trim()
-  return /^[^/\s]+\/[^/\s]+$/.test(fullName) ? fullName : null
+  return REPOSITORY_FULL_NAME_PATTERN.test(fullName) ? fullName : null
 }
 
 function detectGithubBranch(eventData) {
@@ -31623,6 +31626,9 @@ const httm = __nccwpck_require__(4844)
 const fs = __nccwpck_require__(9896)
 const path = __nccwpck_require__(6928)
 const { readGithubEventPayload, detectGithubBranch } = __nccwpck_require__(6474)
+
+const BACKEND_URL_RUN_PATTERN = /\/+$/
+
 
 function splitRepository(repository) {
   if (!repository || !repository.includes('/')) {
@@ -31822,7 +31828,7 @@ async function run() {
       core.getInput('backend-url', { required: false }) ||
       process.env.REVYL_BACKEND_URL ||
       'https://backend.revyl.ai'
-    ).replace(/\/+$/, '')
+    ).replace(BACKEND_URL_RUN_PATTERN, '')
 
     // Validate inputs
     if (!filePath && !expoUrl) {

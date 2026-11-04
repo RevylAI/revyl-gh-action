@@ -1,6 +1,9 @@
 const core = require('@actions/core')
 const fs = require('fs')
 
+const REPOSITORY_FULL_NAME_PATTERN = /^[^/\s]+\/[^/\s]+$/
+
+
 function readGithubEventPayload() {
   if (!process.env.GITHUB_EVENT_PATH) {
     return null
@@ -18,7 +21,7 @@ function repositoryFullName(value) {
     return null
   }
   const fullName = value.trim()
-  return /^[^/\s]+\/[^/\s]+$/.test(fullName) ? fullName : null
+  return REPOSITORY_FULL_NAME_PATTERN.test(fullName) ? fullName : null
 }
 
 function detectGithubBranch(eventData) {

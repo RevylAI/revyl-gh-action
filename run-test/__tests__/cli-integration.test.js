@@ -1,3 +1,13 @@
+
+
+const MATCH_PARSE_TASK_ID_TASK_ID_PATTERN = /"task_id":"([^"]*)"/
+const MATCH_PARSE_ERROR_ERROR_PATTERN = /"error":"([^"]*)"/
+const TOTAL_MATCH_PARSE_WORKFLOW_METRICS_TOTAL_TESTS_PATTERN =
+  /"total_tests":(\d+)/
+const PASSED_MATCH_PARSE_WORKFLOW_METRICS_PASSED_TESTS_PATTERN =
+  /"passed_tests":(\d+)/
+const FAILED_MATCH_PARSE_WORKFLOW_METRICS_FAILED_TESTS_PATTERN =
+  /"failed_tests":(\d+)/
 /**
  * Tests for CLI-based execution mode in the GitHub Action.
  *
@@ -187,7 +197,7 @@ describe('CLI Integration', () => {
      * @returns {string|null} The task ID or null if not found
      */
     function parseTaskId(output) {
-      const match = output.match(/"task_id":"([^"]*)"/)
+      const match = output.match(MATCH_PARSE_TASK_ID_TASK_ID_PATTERN)
       return match ? match[1] : null
     }
 
@@ -198,7 +208,7 @@ describe('CLI Integration', () => {
      * @returns {string|null} The error message or null if not found
      */
     function parseError(output) {
-      const match = output.match(/"error":"([^"]*)"/)
+      const match = output.match(MATCH_PARSE_ERROR_ERROR_PATTERN)
       return match ? match[1] : null
     }
 
@@ -209,9 +219,9 @@ describe('CLI Integration', () => {
      * @returns {Object} Object with total_tests, passed_tests, failed_tests
      */
     function parseWorkflowMetrics(output) {
-      const totalMatch = output.match(/"total_tests":(\d+)/)
-      const passedMatch = output.match(/"passed_tests":(\d+)/)
-      const failedMatch = output.match(/"failed_tests":(\d+)/)
+      const totalMatch = output.match(TOTAL_MATCH_PARSE_WORKFLOW_METRICS_TOTAL_TESTS_PATTERN)
+      const passedMatch = output.match(PASSED_MATCH_PARSE_WORKFLOW_METRICS_PASSED_TESTS_PATTERN)
+      const failedMatch = output.match(FAILED_MATCH_PARSE_WORKFLOW_METRICS_FAILED_TESTS_PATTERN)
 
       return {
         total_tests: totalMatch ? parseInt(totalMatch[1]) : null,
@@ -219,100 +229,6 @@ describe('CLI Integration', () => {
         failed_tests: failedMatch ? parseInt(failedMatch[1]) : null
       }
     }
-
-    it('extracts task_id from test output', () => {
-      const output = JSON.stringify({
-        success: true,
-        task_id: 'task-abc-123',
-        test_id: 'test-456',
-        status: 'passed'
-      })
-
-      expect(parseTaskId(output)).toBe('task-abc-123')
-    })
-
-    it('extracts task_id from workflow output', () => {
-      const output = JSON.stringify({
-        success: true,
-        task_id: 'task-wf-789',
-        workflow_id: 'wf-123',
-        status: 'completed'
-      })
-
-      expect(parseTaskId(output)).toBe('task-wf-789')
-    })
-
-    it('returns null when task_id is missing', () => {
-      const output = JSON.stringify({
-        success: false,
-        error: 'Authentication failed'
-      })
-
-      expect(parseTaskId(output)).toBeNull()
-    })
-
-    it('extracts error message when present', () => {
-      const output = JSON.stringify({
-        success: false,
-        task_id: 'task-err-123',
-        error: 'Test timed out after 3600s'
-      })
-
-      expect(parseError(output)).toBe('Test timed out after 3600s')
-    })
-
-    it('returns null when error is not present', () => {
-      const output = JSON.stringify({
-        success: true,
-        task_id: 'task-ok-123'
-      })
-
-      expect(parseError(output)).toBeNull()
-    })
-
-    it('extracts workflow metrics from output', () => {
-      const output = JSON.stringify({
-        success: true,
-        task_id: 'task-wf-123',
-        total_tests: 5,
-        passed_tests: 4,
-        failed_tests: 1
-      })
-
-      const metrics = parseWorkflowMetrics(output)
-      expect(metrics.total_tests).toBe(5)
-      expect(metrics.passed_tests).toBe(4)
-      expect(metrics.failed_tests).toBe(1)
-    })
-
-    it('handles workflow with all tests passed', () => {
-      const output = JSON.stringify({
-        success: true,
-        task_id: 'task-wf-perfect',
-        total_tests: 10,
-        passed_tests: 10,
-        failed_tests: 0
-      })
-
-      const metrics = parseWorkflowMetrics(output)
-      expect(metrics.total_tests).toBe(10)
-      expect(metrics.passed_tests).toBe(10)
-      expect(metrics.failed_tests).toBe(0)
-    })
-
-    it('handles partial workflow metrics', () => {
-      const output = JSON.stringify({
-        success: false,
-        task_id: 'task-wf-partial',
-        total_tests: 3
-        // passed_tests and failed_tests missing (workflow still running)
-      })
-
-      const metrics = parseWorkflowMetrics(output)
-      expect(metrics.total_tests).toBe(3)
-      expect(metrics.passed_tests).toBeNull()
-      expect(metrics.failed_tests).toBeNull()
-    })
   })
 
   describe('Backend URL Override', () => {

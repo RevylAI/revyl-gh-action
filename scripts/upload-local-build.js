@@ -18,6 +18,9 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 
+const LOAD_ENV_FILE_PATTERN = /^["']|["']$/g
+
+
 const BACKEND_URL = process.env.REVYL_BACKEND_URL || 'https://backend.revyl.ai'
 
 // Load .env file if exists
@@ -30,7 +33,7 @@ function loadEnvFile() {
       if (trimmed && !trimmed.startsWith('#')) {
         const [key, ...vals] = trimmed.split('=')
         if (key && vals.length > 0 && !process.env[key]) {
-          process.env[key] = vals.join('=').replace(/^["']|["']$/g, '')
+          process.env[key] = vals.join('=').replace(LOAD_ENV_FILE_PATTERN, '')
         }
       }
     }
