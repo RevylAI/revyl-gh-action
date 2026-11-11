@@ -34,11 +34,13 @@
   `actions/checkout` earlier in the job and Revyl CLI 0.1.234 or newer. With an
   older `cli-version`, the step fails before the run with
   `The from-checkout input needs Revyl CLI 0.1.234 or newer (found 0.1.210).`
-- `run-test` and `run-workflow` also fail before the run when the
-  `.revyl/config.yaml` the CLI reads (the first one found from the job's working
-  directory up to the repository root) sets `run_test_definitions_from_git`,
+- `run-test` and `run-workflow` also fail before the run when a
+  `.revyl/config.yaml` in the checkout sets `run_test_definitions_from_git`,
   `true` or `false`, and `cli-version` is older than 0.1.234, because older CLIs
-  reject the key or run without the checkout's files:
+  reject the key or run without the checkout's files. With `working-directory`,
+  the step checks the first one from that folder up to the repository root, the
+  one the CLI reads; without it, every one in the workspace, subfolders
+  included:
   `The run_test_definitions_from_git key in .revyl/config.yaml needs Revyl CLI 0.1.234 or newer (found 0.1.210). Set cli-version to 0.1.234 or newer, or remove the key.`
 - Added an optional `working-directory` input to `run-test` and `run-workflow`:
   the folder to run the Revyl CLI in, relative to the workspace, such as
@@ -46,6 +48,12 @@
   CLI version check look for `.revyl/config.yaml` from that folder up. A folder
   that doesn't exist fails before the run with
   `The working-directory input names apps/mobile, which isn't a folder in the workspace.`
+
+### Fixes
+
+- `cli-version` takes a version with or without its `v`, such as `0.1.234` or
+  `v0.1.234`. A version without the `v` used to fail to download with a 404,
+  because the Revyl CLI's release tags start with `v`.
 
 ### Upgrading
 

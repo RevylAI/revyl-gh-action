@@ -38,6 +38,10 @@ build_download_url() {
     return
   fi
 
+  if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    version="v${version}"
+  fi
+
   printf '%s/download/%s/%s' "$base_url" "$version" "$binary"
 }
 

@@ -102,10 +102,11 @@ CLI finds no `.revyl/config.yaml`. The log's `Definition:` line shows what ran.
 Older CLIs reject the key or run without the checkout's files, so with an older
 `cli-version` the step fails before the run starts:
 `The run_test_definitions_from_git key in .revyl/config.yaml needs Revyl CLI 0.1.234 or newer (found 0.1.210). Set cli-version to 0.1.234 or newer, or remove the key.`
-The step checks the same `.revyl/config.yaml` the CLI reads: the first one from
-the `working-directory` folder, or the job's workspace when it's unset, up to
-the repository root. It doesn't look in subfolders, because the CLI doesn't read
-a `.revyl/config.yaml` there either.
+With `working-directory`, the step checks the `.revyl/config.yaml` the CLI
+reads: the first one from that folder up to the repository root. Without it, the
+step checks every `.revyl/config.yaml` in the workspace, subfolders included,
+and names the first that sets the key, because Revyl refuses a run from an older
+CLI on a project that runs tests from Git wherever the CLI runs.
 
 ### No-Wait Mode
 

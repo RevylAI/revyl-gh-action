@@ -129,11 +129,13 @@ files instead of the saved copies; see
 [Run the Checkout's Test Files](./run-test/README.md#run-the-checkouts-test-files).
 It needs Revyl CLI 0.1.234 or later, and so does a `.revyl/config.yaml` that
 sets `run_test_definitions_from_git`: with an older `cli-version`, the step
-fails before the run starts. The step checks the same `.revyl/config.yaml` the
-CLI reads, the first one from the job's workspace up to the repository root, and
-never one in a subfolder. When the project is in a subfolder, such as
-`apps/mobile/.revyl/`, set `working-directory: apps/mobile` to run the CLI and
-that check there.
+fails before the run starts. With `working-directory`, the step checks the
+`.revyl/config.yaml` the CLI reads, the first one from that folder up to the
+repository root. Without it, the step checks every `.revyl/config.yaml` in the
+workspace, subfolders included, because Revyl refuses a run from an older CLI on
+a project that runs tests from Git wherever the CLI runs. When the project is in
+a subfolder, such as `apps/mobile/.revyl/`, set `working-directory: apps/mobile`
+so the CLI reads its `.revyl/config.yaml`.
 
 ### Run Workflow Action (`run-workflow`)
 

@@ -221,6 +221,27 @@ runs:
           done
         }
 
+        config_sets_run_test_definitions_from_git() {
+          grep -Eq "^[\"']?run_test_definitions_from_git[\"']?[[:space:]]*:" "$1"
+        }
+
+        find_config_path_setting_run_test_definitions_from_git() {
+          local config_path
+          if [ -n "${WORKING_DIRECTORY_INPUT}" ]; then
+            config_path="$(find_checkout_config_path)" || return 1
+            config_sets_run_test_definitions_from_git "${config_path}" || return 1
+            printf '%s' "${config_path#"$(git rev-parse --show-toplevel)/"}"
+            return 0
+          fi
+          while IFS= read -r config_path; do
+            if config_sets_run_test_definitions_from_git "${config_path}"; then
+              printf '%s' "${config_path#./}"
+              return 0
+            fi
+          done < <(find . \( -name .git -o -name node_modules \) -prune -o -path '*/.revyl/config.yaml' -type f -print | sort)
+          return 1
+        }
+
         MIN_BRANCH_CLI_VERSION="0.1.148"
         MIN_ALL_BRANCHES_CLI_VERSION="0.1.149"
         MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION="0.1.234"
@@ -253,8 +274,8 @@ runs:
         if [ -n "${FROM_CHECKOUT_INPUT}" ]; then
           require_cli_version "The from-checkout input" "${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION}"
         fi
-        if CHECKOUT_CONFIG_PATH="$(find_checkout_config_path)" && grep -Eq "^[\"']?run_test_definitions_from_git[\"']?[[:space:]]*:" "${CHECKOUT_CONFIG_PATH}"; then
-          require_cli_version "The run_test_definitions_from_git key in ${CHECKOUT_CONFIG_PATH#"$(git rev-parse --show-toplevel)/"}" "${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION}" "Set cli-version to ${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION} or newer, or remove the key."
+        if CHECKOUT_CONFIG_PATH="$(find_config_path_setting_run_test_definitions_from_git)"; then
+          require_cli_version "The run_test_definitions_from_git key in ${CHECKOUT_CONFIG_PATH}" "${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION}" "Set cli-version to ${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION} or newer, or remove the key."
         fi
 
         PRIMARY_WORKFLOW_ID="${{ inputs.workflow-id }}"
