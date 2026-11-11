@@ -25,6 +25,27 @@
   upload. To test a pull request's own build, pass the upload's `build-id` to
   `run-test`, or save the test on Default branch; see
   [New saved choices](https://docs.revyl.com/builds/branches#new-saved-choices).
+- Added an optional `from-checkout` input to `run-test` and `run-workflow`.
+  `'true'` runs the checked-out `.revyl/tests`, `.revyl/modules` and
+  `.revyl/scripts` files instead of the saved copies, `'false'` sends no files
+  (the run reads Git when the project runs tests from Git, else the saved
+  copies), and leaving it out lets the CLI decide from
+  `run_test_definitions_from_git` in `.revyl/config.yaml`. It needs
+  `actions/checkout` earlier in the job and Revyl CLI 0.1.234 or newer. With an
+  older `cli-version`, the step fails before the run with
+  `The from-checkout input needs Revyl CLI 0.1.234 or newer (found 0.1.210).`
+- `run-test` and `run-workflow` also fail before the run when the
+  `.revyl/config.yaml` the CLI reads (the first one found from the job's working
+  directory up to the repository root) sets `run_test_definitions_from_git`,
+  `true` or `false`, and `cli-version` is older than 0.1.234, because older CLIs
+  reject the key or run without the checkout's files:
+  `The run_test_definitions_from_git key in .revyl/config.yaml needs Revyl CLI 0.1.234 or newer (found 0.1.210). Set cli-version to 0.1.234 or newer, or remove the key.`
+- Added an optional `working-directory` input to `run-test` and `run-workflow`:
+  the folder to run the Revyl CLI in, relative to the workspace, such as
+  `apps/mobile` for a project in `apps/mobile/.revyl/`. The CLI and the step's
+  CLI version check look for `.revyl/config.yaml` from that folder up. A folder
+  that doesn't exist fails before the run with
+  `The working-directory input names apps/mobile, which isn't a folder in the workspace.`
 
 ### Upgrading
 

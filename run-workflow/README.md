@@ -72,6 +72,41 @@ all of its branches (All branches · Latest build) for this run only. It can't b
 combined with `branch`; the run fails before it starts. `all-branches` needs
 Revyl CLI 0.1.149 or later; the default `cli-version: latest` has it.
 
+### Run the Checkout's Test Files
+
+```yaml
+- uses: actions/checkout@v4
+- name: Run Revyl Workflow from this checkout
+  uses: RevylAI/revyl-gh-action/run-workflow@main
+  with:
+    api-key: ${{ secrets.REVYL_API_KEY }}
+    workflow-id: 'your-workflow-id'
+    from-checkout: 'true'
+```
+
+`from-checkout: 'true'` runs each workflow test's checked-out file, and every
+module and script file those tests name, instead of the saved copies. `'false'`
+sends no files, so each test reads its branch's files from Git when the project
+runs tests from Git, and the saved copies otherwise. Omit it to let the CLI
+decide: it runs the files when `.revyl/config.yaml` sets
+`run_test_definitions_from_git: true`. The job needs `actions/checkout` before
+this step. The CLI looks for `.revyl/config.yaml` from the job's workspace up,
+or from the `working-directory` folder up when you set it. When the project is
+in a subfolder, such as `apps/mobile/.revyl/`, set
+`working-directory: apps/mobile`. `'true'` fails before the run starts when the
+CLI finds no `.revyl/config.yaml`. The log's `Definition:` line shows what ran.
+
+`from-checkout` needs Revyl CLI 0.1.234 or later, and so does a
+`.revyl/config.yaml` that sets `run_test_definitions_from_git` (`true` or
+`false`), with or without the input; the default `cli-version: latest` has it.
+Older CLIs reject the key or run without the checkout's files, so with an older
+`cli-version` the step fails before the run starts:
+`The run_test_definitions_from_git key in .revyl/config.yaml needs Revyl CLI 0.1.234 or newer (found 0.1.210). Set cli-version to 0.1.234 or newer, or remove the key.`
+The step checks the same `.revyl/config.yaml` the CLI reads: the first one from
+the `working-directory` folder, or the job's workspace when it's unset, up to
+the repository root. It doesn't look in subfolders, because the CLI doesn't read
+a `.revyl/config.yaml` there either.
+
 ### No-Wait Mode
 
 Launch workflows without waiting for completion. The action succeeds immediately
@@ -126,18 +161,20 @@ jobs:
 
 ## Inputs
 
-| Input          | Description                                                             | Required | Default       |
-| -------------- | ----------------------------------------------------------------------- | -------- | ------------- |
-| `api-key`      | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) | No       |               |
-| `workflow-id`  | The workflow id to run (preferred)                                      | Yes\*    |               |
-| `workflow_id`  | Deprecated alias for `workflow-id`                                      | No       |               |
-| `branch`       | Revyl branch to run every app in the workflow on                        | No       | Saved choices |
-| `all-branches` | Run every app on its newest build across all branches                   | No       | `false`       |
-| `retries`      | Number of retries for failed tests in the workflow                      | No       | `1`           |
-| `timeout`      | Timeout in seconds for workflow execution                               | No       | `3600`        |
-| `backend-url`  | Override backend base URL                                               | No       |               |
-| `no-wait`      | Launch and exit immediately without waiting for completion              | No       | `false`       |
-| `cli-version`  | CLI version used by the action runtime                                  | No       | `latest`      |
+| Input               | Description                                                             | Required | Default       |
+| ------------------- | ----------------------------------------------------------------------- | -------- | ------------- |
+| `api-key`           | Revyl API key for authentication (can also use `REVYL_API_KEY` env var) | No       |               |
+| `workflow-id`       | The workflow id to run (preferred)                                      | Yes\*    |               |
+| `workflow_id`       | Deprecated alias for `workflow-id`                                      | No       |               |
+| `branch`            | Revyl branch to run every app in the workflow on                        | No       | Saved choices |
+| `all-branches`      | Run every app on its newest build across all branches                   | No       | `false`       |
+| `from-checkout`     | Run the checkout's test files instead of the saved copies               | No       | From config   |
+| `working-directory` | Folder to run the CLI in, such as the project's subfolder               | No       | Workspace     |
+| `retries`           | Number of retries for failed tests in the workflow                      | No       | `1`           |
+| `timeout`           | Timeout in seconds for workflow execution                               | No       | `3600`        |
+| `backend-url`       | Override backend base URL                                               | No       |               |
+| `no-wait`           | Launch and exit immediately without waiting for completion              | No       | `false`       |
+| `cli-version`       | CLI version used by the action runtime                                  | No       | `latest`      |
 
 \* Provide either `workflow-id` (preferred) or the deprecated `workflow_id`
 alias.

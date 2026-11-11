@@ -27,6 +27,21 @@ inputs:
       Requires Revyl CLI 0.1.149 or newer.'
     required: false
     default: 'false'
+  from-checkout:
+    description:
+      "Run the checkout's .revyl test, module and script files instead of the
+      saved copies (true or false). Omit to let the CLI decide from
+      run_test_definitions_from_git in .revyl/config.yaml. Needs
+      actions/checkout earlier in the job and Revyl CLI 0.1.234 or newer, and
+      so does a .revyl/config.yaml that sets run_test_definitions_from_git."
+    required: false
+  working-directory:
+    description:
+      'Folder to run the Revyl CLI in, relative to the workspace root where
+      actions/checkout puts the repository, such as apps/mobile when the project
+      is in apps/mobile/.revyl/. The CLI looks for .revyl/config.yaml from this
+      folder up. Omit to run at the workspace root.'
+    required: false
   retries:
     description: 'Number of retries for failed tests within the workflow.'
     required: false
@@ -143,6 +158,8 @@ runs:
         REVYL_CLI_PATH: ${{ steps.download-cli.outputs.path }}
         BRANCH_INPUT: ${{ inputs.branch }}
         ALL_BRANCHES_INPUT: ${{ inputs.all-branches }}
+        FROM_CHECKOUT_INPUT: ${{ inputs.from-checkout }}
+        WORKING_DIRECTORY_INPUT: ${{ inputs.working-directory }}
       run: |
         if [ -z "${REVYL_API_KEY}" ]; then
           echo "::error::Missing REVYL_API_KEY"
@@ -178,17 +195,35 @@ runs:
         }
 
         require_cli_version() {
-          local input_name="$1"
+          local requirement_subject="$1"
           local min_version="$2"
+          local remedy="$3"
           local cli_version
           cli_version="$("${REVYL_CLI_PATH}" version 2>&1 | grep -oE '(revyl version|Version:)[[:space:]]+v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
           if [ -n "${cli_version}" ] && version_is_below "${cli_version}" "${min_version}"; then
-            fail_before_run "The ${input_name} input needs Revyl CLI ${min_version} or newer (found ${cli_version})."
+            fail_before_run "${requirement_subject} needs Revyl CLI ${min_version} or newer (found ${cli_version}).${remedy:+ ${remedy}}"
           fi
+        }
+
+        find_checkout_config_path() {
+          local worktree_root directory
+          worktree_root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+          directory="$(pwd -P)"
+          while :; do
+            if [ -f "${directory}/.revyl/config.yaml" ]; then
+              printf '%s' "${directory}/.revyl/config.yaml"
+              return 0
+            fi
+            if [ "${directory}" = "${worktree_root}" ] || [ "${directory}" = / ]; then
+              return 1
+            fi
+            directory="$(dirname "${directory}")"
+          done
         }
 
         MIN_BRANCH_CLI_VERSION="0.1.148"
         MIN_ALL_BRANCHES_CLI_VERSION="0.1.149"
+        MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION="0.1.234"
 
         BRANCH_INPUT="$(trim_whitespace "${BRANCH_INPUT}")"
         ALL_BRANCHES_INPUT="$(trim_whitespace "${ALL_BRANCHES_INPUT}")"
@@ -196,15 +231,30 @@ runs:
           true | false | '') ;;
           *) fail_before_run "The all-branches input must be true or false." ;;
         esac
+        FROM_CHECKOUT_INPUT="$(trim_whitespace "${FROM_CHECKOUT_INPUT}")"
+        case "${FROM_CHECKOUT_INPUT}" in
+          true | false | '') ;;
+          *) fail_before_run "The from-checkout input must be true or false." ;;
+        esac
+        WORKING_DIRECTORY_INPUT="$(trim_whitespace "${WORKING_DIRECTORY_INPUT}")"
+        if [ -n "${WORKING_DIRECTORY_INPUT}" ]; then
+          cd -- "${WORKING_DIRECTORY_INPUT}" 2>/dev/null || fail_before_run "The working-directory input names ${WORKING_DIRECTORY_INPUT}, which isn't a folder in the workspace."
+        fi
 
         if [ "${ALL_BRANCHES_INPUT}" = "true" ]; then
           if [ -n "${BRANCH_INPUT}" ]; then
             fail_before_run "The all-branches input can't be combined with branch. Remove one of them."
           fi
-          require_cli_version all-branches "${MIN_ALL_BRANCHES_CLI_VERSION}"
+          require_cli_version "The all-branches input" "${MIN_ALL_BRANCHES_CLI_VERSION}"
         fi
         if [ -n "${BRANCH_INPUT}" ]; then
-          require_cli_version branch "${MIN_BRANCH_CLI_VERSION}"
+          require_cli_version "The branch input" "${MIN_BRANCH_CLI_VERSION}"
+        fi
+        if [ -n "${FROM_CHECKOUT_INPUT}" ]; then
+          require_cli_version "The from-checkout input" "${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION}"
+        fi
+        if CHECKOUT_CONFIG_PATH="$(find_checkout_config_path)" && grep -Eq "^[\"']?run_test_definitions_from_git[\"']?[[:space:]]*:" "${CHECKOUT_CONFIG_PATH}"; then
+          require_cli_version "The run_test_definitions_from_git key in ${CHECKOUT_CONFIG_PATH#"$(git rev-parse --show-toplevel)/"}" "${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION}" "Set cli-version to ${MIN_RUN_TEST_DEFINITIONS_FROM_GIT_CLI_VERSION} or newer, or remove the key."
         fi
 
         PRIMARY_WORKFLOW_ID="${{ inputs.workflow-id }}"
@@ -238,6 +288,10 @@ runs:
 
         if [ "${REQUESTED_NO_WAIT}" = "true" ]; then
           ARGS="${ARGS} --no-wait"
+        fi
+
+        if [ -n "${FROM_CHECKOUT_INPUT}" ]; then
+          ARGS="${ARGS} --from-checkout=${FROM_CHECKOUT_INPUT}"
         fi
 
         BRANCH_ARGS=()

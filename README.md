@@ -98,19 +98,21 @@ retries, and shareable report generation.
 
 **Input Parameters:**
 
-| Parameter          | Required | Description                                  | Default      |
-| ------------------ | -------- | -------------------------------------------- | ------------ |
-| `api-key`          | No       | Revyl API key; falls back to `REVYL_API_KEY` | -            |
-| `test-id`          | No\*     | The ID of the test to run                    | -            |
-| `workflow-id`      | No\*     | The ID of the workflow to run (preferred)    | -            |
-| `workflow_id`      | No       | Deprecated alias for `workflow-id`           | -            |
-| `build-id`         | No       | Exact build ID to run; test runs only        | -            |
-| `build-version-id` | No       | Deprecated alias for `build-id`              | -            |
-| `branch`           | No       | Revyl branch to run on                       | Saved choice |
-| `all-branches`     | No       | Run on the newest build across all branches  | `false`      |
-| `retries`          | No       | Number of retries if test fails              | -            |
-| `timeout`          | No       | Timeout in seconds for the test execution    | `3600`       |
-| `cli-version`      | No       | Revyl CLI version used by the action runtime | `latest`     |
+| Parameter           | Required | Description                                   | Default      |
+| ------------------- | -------- | --------------------------------------------- | ------------ |
+| `api-key`           | No       | Revyl API key; falls back to `REVYL_API_KEY`  | -            |
+| `test-id`           | No\*     | The ID of the test to run                     | -            |
+| `workflow-id`       | No\*     | The ID of the workflow to run (preferred)     | -            |
+| `workflow_id`       | No       | Deprecated alias for `workflow-id`            | -            |
+| `build-id`          | No       | Exact build ID to run; test runs only         | -            |
+| `build-version-id`  | No       | Deprecated alias for `build-id`               | -            |
+| `branch`            | No       | Revyl branch to run on                        | Saved choice |
+| `all-branches`      | No       | Run on the newest build across all branches   | `false`      |
+| `from-checkout`     | No       | Run the checkout's test files (true/false)    | From config  |
+| `working-directory` | No       | Folder to run the CLI in, such as a subfolder | Workspace    |
+| `retries`           | No       | Number of retries if test fails               | -            |
+| `timeout`           | No       | Timeout in seconds for the test execution     | `3600`       |
+| `cli-version`       | No       | Revyl CLI version used by the action runtime  | `latest`     |
 
 \* Either `test-id` or `workflow-id` (preferred) must be provided. `workflow_id`
 is accepted as a deprecated alias.
@@ -122,12 +124,22 @@ Git branch when automatic Git branch detection is on for the app and it has a
 usable build; with detection off, it uses the app's default branch.
 `all-branches: 'true'` runs on the newest build across all branches. See the
 [run-test README](./run-test/README.md#run-on-a-branch) for the full rules.
+`from-checkout: 'true'` runs the checked-out `.revyl` test, module and script
+files instead of the saved copies; see
+[Run the Checkout's Test Files](./run-test/README.md#run-the-checkouts-test-files).
+It needs Revyl CLI 0.1.234 or later, and so does a `.revyl/config.yaml` that
+sets `run_test_definitions_from_git`: with an older `cli-version`, the step
+fails before the run starts. The step checks the same `.revyl/config.yaml` the
+CLI reads, the first one from the job's workspace up to the repository root, and
+never one in a subfolder. When the project is in a subfolder, such as
+`apps/mobile/.revyl/`, set `working-directory: apps/mobile` to run the CLI and
+that check there.
 
 ### Run Workflow Action (`run-workflow`)
 
 Dedicated CLI-first entrypoint for running a Revyl workflow by `workflow-id`.
 `branch` and `all-branches` work as in `run-test`, for every app in the
-workflow. See the
+workflow, and so does `from-checkout`. See the
 [run-workflow README](./run-workflow/README.md#run-on-a-branch) for its inputs
 and branch rules.
 
@@ -189,6 +201,7 @@ app's default branch. Explicit `branch` always takes precedence. See the
 When using Expo/EAS builds, you'll need:
 
 1. **Add EXPO_TOKEN to GitHub Secrets:**
+
    - Get your token from
      [Expo Access Tokens](https://expo.dev/accounts/[your-username]/settings/access-tokens)
    - Add as `EXPO_TOKEN` in your repository secrets
