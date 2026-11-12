@@ -1,30 +1,9 @@
 # Release Notes
 
-## v2.3.0 - Uploads follow the Git branch (unreleased)
+## v2.4.0 - Run the checkout's test files (2026-11-12)
 
 ### Changes
 
-- Without `branch`, `upload-build` respects each app's Automatic Git branch
-  detection setting on its Build branches page. Off uploads to the app default.
-  On (the initial setting) uploads to the run's Git branch: the pull request's
-  source branch (`owner:branch` for forks) or the branch the run is on, even
-  without a checkout, and creates it if needed. Tag runs, and jobs with no
-  branch to read, still upload to the app's default branch. A detected name that
-  can't be a Revyl branch fails before upload. Uploads don't pin the branch.
-- With automatic detection on, every branch you upload from becomes a Revyl
-  branch, and branches can't be deleted. Merge queue runs
-  (`gh-readonly-queue/...`, one per entry) and bot branches create one each; set
-  `branch` in those workflows.
-- With CLI 0.1.177 or later, tests saved on Default branch run on the job's Git
-  branch in `run-test` and `run-workflow` when it has a usable build, otherwise
-  on the app's default branch. Turning automatic detection off always uses the
-  app default for inferred Git context. Older CLIs use the app's default branch.
-  Saved branches, exact builds, `branch` and `all-branches` aren't affected.
-- Tests and workflow app overrides created in the dashboard start on All
-  branches · Latest build, so a pull request job can run another pull request's
-  upload. To test a pull request's own build, pass the upload's `build-id` to
-  `run-test`, or save the test on Default branch; see
-  [New saved choices](https://docs.revyl.com/builds/branches#new-saved-choices).
 - Added an optional `from-checkout` input to `run-test` and `run-workflow`.
   `'true'` runs the checked-out `.revyl/tests`, `.revyl/modules` and
   `.revyl/scripts` files instead of the saved copies, `'false'` sends no files
@@ -48,12 +27,58 @@
   CLI version check look for `.revyl/config.yaml` from that folder up. A folder
   that doesn't exist fails before the run with
   `The working-directory input names apps/mobile, which isn't a folder in the workspace.`
+- Without `branch`, `upload-build` leaves the destination to each app's
+  Automatic Git branch detection setting on its Build branches page. Off uploads
+  to the app's default branch; on (the initial setting) uploads to the run's Git
+  branch, as in v2.3.0. The log names the detected Git branch, then the branch
+  the upload went to. The step no longer checks the Git branch's name itself:
+  with detection off, a name that can't be a Revyl branch no longer fails it;
+  with detection on, it still fails before upload.
+- The same setting decides where tests saved on Default branch run in `run-test`
+  and `run-workflow`: with detection off, on the app's default branch. Revyl
+  applies the setting on its side, so uploads and runs from v2.3.0 follow it
+  too.
 
 ### Fixes
 
 - `cli-version` takes a version with or without its `v`, such as `0.1.234` or
   `v0.1.234`. A version without the `v` used to fail to download with a 404,
-  because the Revyl CLI's release tags start with `v`.
+  because the Revyl CLI's release tags start with `v`. On v2.3.0 and earlier,
+  write the `v`.
+
+### Upgrading
+
+- Workflows on `@v2` or `@main` get this release without edits. Pin `@v2.3.0` to
+  stay on the previous release.
+- A job that pins `cli-version` older than 0.1.234 now fails before the run when
+  a `.revyl/config.yaml` the step checks sets `run_test_definitions_from_git`.
+  Set `cli-version` to 0.1.234 or newer, or remove the key; the default
+  `cli-version: latest` already passes.
+
+---
+
+## v2.3.0 - Uploads follow the Git branch (2026-10-19)
+
+### Changes
+
+- Without `branch`, `upload-build` uploads to the run's Git branch: the pull
+  request's source branch (`owner:branch` for forks) or the branch the run is
+  on, even without a checkout, and creates it if needed. Tag runs, and jobs with
+  no branch to read, still upload to the app's default branch. A detected name
+  that can't be a Revyl branch fails before upload. Uploads don't pin the
+  branch.
+- Every branch you upload from becomes a Revyl branch, and branches can't be
+  deleted. Merge queue runs (`gh-readonly-queue/...`, one per entry) and bot
+  branches create one each; set `branch` in those workflows.
+- With CLI 0.1.177 or later, tests saved on Default branch run on the job's Git
+  branch in `run-test` and `run-workflow` when it has a usable build, otherwise
+  on the app's default branch. Older CLIs use the app's default branch. Saved
+  branches, exact builds, `branch` and `all-branches` aren't affected.
+- Tests and workflow app overrides created in the dashboard start on All
+  branches · Latest build, so a pull request job can run another pull request's
+  upload. To test a pull request's own build, pass the upload's `build-id` to
+  `run-test`, or save the test on Default branch; see
+  [New saved choices](https://docs.revyl.com/builds/branches#new-saved-choices).
 
 ### Upgrading
 
@@ -62,8 +87,7 @@
   and dashboard and scheduled runs saved on Default branch use the default
   branch, so they stop picking up new CI builds. Make `main` the default branch
   (`revyl app branch default main --app <app>`), or set `branch: base` (your
-  default branch's name, if you changed it), or turn off Automatic Git branch
-  detection on the app's Build branches page to keep the default destination.
+  default branch's name, if you changed it) to keep the old destination.
 - Workflows on `@v2` or `@main` get this change without edits. Pin `@v2.2.1`, or
   set `branch`, to keep the old destination.
 - Runs follow the Git branch through the CLI, not the Action, so with the
